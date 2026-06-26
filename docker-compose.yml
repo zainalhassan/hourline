@@ -1,0 +1,62 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: hourline-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: hourline
+      POSTGRES_PASSWORD: hourline
+      POSTGRES_DB: hourline
+    ports:
+      - "5434:5432"
+    volumes:
+      - hourline_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hourline -d hourline"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: hourline-app
+    ports:
+      - "3001:3000"
+    environment:
+      DATABASE_URL: postgresql://hourline:hourline@db:5432/hourline
+      AUTH_SECRET: ${AUTH_SECRET:-dev-secret-change-me-in-production-32chars}
+      AUTH_URL: ${AUTH_URL:-http://localhost:3001}
+      APP_DISPLAY_NAME: Hourline
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      db:
+        condition: service_healthy
+    command: sh docker/entrypoint.sh npm run dev
+
+  app-prod:
+    profiles: ["prod"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hourline-app-prod
+    restart: unless-stopped
+    ports:
+      - "3011:3000"
+    environment:
+      DATABASE_URL: postgresql://hourline:hourline@db:5432/hourline
+      AUTH_SECRET: ${AUTH_SECRET}
+      AUTH_URL: ${AUTH_URL:-http://localhost:3011}
+      APP_DISPLAY_NAME: Hourline
+      NODE_ENV: production
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  hourline_pg_data:

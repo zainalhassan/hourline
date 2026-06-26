@@ -5,10 +5,10 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: hourline
-      POSTGRES_PASSWORD: hourline
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: hourline
     ports:
-      - "5434:5432"
+      - "127.0.0.1:5434:5432"
     volumes:
       - hourline_pg_data:/var/lib/postgresql/data
     healthcheck:
@@ -24,8 +24,9 @@ services:
     container_name: hourline-app
     ports:
       - "3001:3000"
+    env_file:
+      - .env
     environment:
-      DATABASE_URL: postgresql://hourline:hourline@db:5432/hourline
       AUTH_SECRET: ${AUTH_SECRET:-dev-secret-change-me-in-production-32chars}
       AUTH_URL: ${AUTH_URL:-http://localhost:3001}
       APP_DISPLAY_NAME: Hourline
@@ -48,10 +49,9 @@ services:
     restart: unless-stopped
     ports:
       - "127.0.0.1:3011:3000"
+    env_file:
+      - .env
     environment:
-      DATABASE_URL: postgresql://hourline:hourline@db:5432/hourline
-      AUTH_SECRET: ${AUTH_SECRET}
-      AUTH_URL: ${AUTH_URL:-http://localhost:3011}
       APP_DISPLAY_NAME: Hourline
       NODE_ENV: production
     depends_on:

@@ -1,0 +1,112 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum JobTitlePreset {
+  FIELD_ENGINEER
+  OFFICE_DESK
+  CONSULTANT
+  FREELANCER
+}
+
+enum PeriodStatus {
+  DRAFT
+  READY
+  SENT
+}
+
+model User {
+  id       String  @id @default(cuid())
+  name     String?
+  email    String  @unique
+  emailVerified DateTime?
+  passwordHash  String?
+  image    String?
+
+  employerName   String?
+  employerEmail  String?
+  ccSelfOnSubmit Boolean @default(false)
+  submitMessage  String?
+
+  activePreset         JobTitlePreset @default(FIELD_ENGINEER)
+  activeUserTemplateId String?
+
+  userTemplates UserTimesheetTemplate[]
+  periods       TimesheetPeriod[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model UserTimesheetTemplate {
+  id          String         @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  forkedFrom  JobTitlePreset
+  fieldConfig Json
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model TimesheetPeriod {
+  id        String       @id @default(cuid())
+  userId    String
+  startDate DateTime     @db.Date
+  endDate   DateTime     @db.Date
+  status    PeriodStatus @default(DRAFT)
+
+  presetUsed          JobTitlePreset?
+  userTemplateId      String?
+  fieldConfigSnapshot Json?
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entries     TimeEntry[]
+  submissions Submission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, startDate])
+  @@index([userId, status])
+}
+
+model TimeEntry {
+  id              String   @id @default(cuid())
+  periodId        String
+  entryDate       DateTime @db.Date
+  durationMinutes Int      @default(0)
+  mileage         Decimal? @db.Decimal(10, 2)
+  metadata        Json?
+
+  period TimesheetPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([periodId, entryDate])
+}
+
+model Submission {
+  id             String   @id @default(cuid())
+  periodId       String
+  sentAt         DateTime @default(now())
+  recipientEmail String
+  recipientName  String?
+  ccEmail        String?
+  message        String?
+  pdfStoragePath String?
+
+  period TimesheetPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  @@index([periodId])
+}

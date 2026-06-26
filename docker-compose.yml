@@ -47,7 +47,7 @@ services:
     container_name: hourline-app-prod
     restart: unless-stopped
     ports:
-      - "3011:3000"
+      - "127.0.0.1:3011:3000"
     environment:
       DATABASE_URL: postgresql://hourline:hourline@db:5432/hourline
       AUTH_SECRET: ${AUTH_SECRET}

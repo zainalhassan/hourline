@@ -35,10 +35,12 @@ export function EntryActions({ entry, fields, periodId }: EntryActionsProps) {
   return (
     <div className="flex gap-1">
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogTrigger asChild>
-          <Button variant="ghost" size="icon" className="size-8">
-            <Pencil className="size-4" />
-          </Button>
+        <DialogTrigger
+          render={
+            <Button variant="ghost" size="icon" className="size-8" />
+          }
+        >
+          <Pencil className="size-4" />
         </DialogTrigger>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>

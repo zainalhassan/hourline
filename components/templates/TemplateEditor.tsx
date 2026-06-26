@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ComponentProps } from "react";
 import { JobTitlePreset } from "@prisma/client";
 import { PRESET_LIST } from "@/lib/timesheet/presets";
 import {
@@ -14,10 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
 type TemplateEditorProps = {
-  action: (
-    prev: { error?: string; success?: boolean },
-    formData: FormData,
-  ) => Promise<{ error?: string; success?: boolean }>;
+  action: NonNullable<ComponentProps<"form">["action"]>;
   initial?: {
     name: string;
     description?: string;

@@ -9,8 +9,8 @@ import { sendTimesheetEmail } from "@/lib/email/sendTimesheet";
 import { generateTimesheetPdf } from "@/lib/pdf/generateTimesheetPdf";
 import { requirePeriod } from "@/lib/timesheet/periodQueries";
 import { getUserActiveTemplate } from "@/lib/timesheet/templates";
+import { getMileageFromEntry, normalizeFieldConfig } from "@/lib/timesheet/fieldConfig";
 import { sendTimesheetSchema } from "@/lib/validations";
-import type { TemplateFieldConfig } from "@/lib/timesheet/fields";
 
 export type SubmissionActionState = {
   error?: string;
@@ -51,24 +51,22 @@ export async function sendTimesheetToEmployer(
     return { error: "No entries to send" };
   }
 
-  const template = period.fieldConfigSnapshot
-    ? {
-        ...(await getUserActiveTemplate(session.user.id)),
-        fields: period.fieldConfigSnapshot as TemplateFieldConfig[],
-      }
-    : await getUserActiveTemplate(session.user.id);
+  const activeTemplate = await getUserActiveTemplate(session.user.id);
+  const fieldConfig = period.fieldConfigSnapshot
+    ? normalizeFieldConfig(period.fieldConfigSnapshot)
+    : activeTemplate.fieldConfig;
 
   const pdfBuffer = await generateTimesheetPdf({
     userName: user.name ?? user.email,
     userEmail: user.email,
     periodStart: period.startDate,
     periodEnd: period.endDate,
-    templateName: template.name,
-    fields: template.fields,
+    templateName: activeTemplate.name,
+    fieldConfig,
     entries: period.entries.map((e) => ({
       entryDate: e.entryDate,
       durationMinutes: e.durationMinutes,
-      mileage: e.mileage ? Number(e.mileage) : null,
+      mileage: getMileageFromEntry(e),
       metadata: (e.metadata as Record<string, unknown>) ?? {},
     })),
   });

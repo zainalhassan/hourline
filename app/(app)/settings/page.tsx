@@ -3,6 +3,7 @@ import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getUserById } from "@/lib/user";
+import { isEmailConfigured } from "@/lib/env";
 import { ActiveTemplatePicker } from "@/components/settings/ActiveTemplatePicker";
 import {
   SettingsForm,
@@ -68,6 +69,7 @@ export default async function SettingsPage() {
           employerEmail={user.employerEmail ?? ""}
           ccSelfOnSubmit={user.ccSelfOnSubmit}
           submitMessage={user.submitMessage ?? ""}
+          emailConfigured={isEmailConfigured()}
         />
       </SectionCard>
 

@@ -4,14 +4,20 @@ import {
   getDefaultFieldConfig,
   JOB_TITLE_PRESETS,
 } from "@/lib/timesheet/presets";
-import type { TemplateFieldConfig } from "@/lib/timesheet/fields";
+import {
+  normalizeFieldConfig,
+  type StoredFieldConfig,
+  getVisibleResolvedFields,
+  type ResolvedField,
+} from "@/lib/timesheet/fieldConfig";
 
 export type ActiveTemplate = {
   preset: JobTitlePreset;
   userTemplateId?: string;
   name: string;
   headerColor: string;
-  fields: TemplateFieldConfig[];
+  fieldConfig: StoredFieldConfig;
+  fields: ResolvedField[];
 };
 
 export async function getUserActiveTemplate(userId: string): Promise<ActiveTemplate> {
@@ -38,22 +44,24 @@ export async function getUserActiveTemplate(userId: string): Promise<ActiveTempl
     preset,
     name: definition.label,
     headerColor: definition.headerColor,
-    fields: getDefaultFieldConfig(preset),
+    fieldConfig: getDefaultFieldConfig(preset),
+    fields: getVisibleResolvedFields(getDefaultFieldConfig(preset)),
   };
 }
 
 export function resolveUserTemplate(template: UserTimesheetTemplate): ActiveTemplate {
   const definition = JOB_TITLE_PRESETS[template.forkedFrom];
-  const fields = template.fieldConfig as TemplateFieldConfig[];
+  const fieldConfig = normalizeFieldConfig(template.fieldConfig);
   return {
     preset: template.forkedFrom,
     userTemplateId: template.id,
     name: template.name,
     headerColor: definition.headerColor,
-    fields: [...fields].sort((a, b) => a.sortOrder - b.sortOrder),
+    fieldConfig,
+    fields: getVisibleResolvedFields(fieldConfig),
   };
 }
 
-export function getVisibleFields(fields: TemplateFieldConfig[]): TemplateFieldConfig[] {
-  return fields.filter((f) => f.visible).sort((a, b) => a.sortOrder - b.sortOrder);
+export function getVisibleFields(fieldConfig: StoredFieldConfig): ResolvedField[] {
+  return getVisibleResolvedFields(fieldConfig);
 }

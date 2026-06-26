@@ -43,7 +43,11 @@ npm run dev
 
 ## Email
 
-Configure SMTP in `.env` to enable **Send to employer**:
+Configure SMTP on the server to enable **Send to employer**. See [docs/EMAIL.md](docs/EMAIL.md) for setup and verification.
+
+Without SMTP, you can still preview and download PDFs or export CSV.
+
+Example server variables:
 
 ```
 SMTP_HOST=smtp.example.com
@@ -52,8 +56,6 @@ SMTP_FROM=hourline@yourdomain.com
 SMTP_USER=...
 SMTP_PASS=...
 ```
-
-Without SMTP, you can still preview and download PDFs.
 
 ## Stack
 

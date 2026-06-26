@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import type { TimeEntry } from "@prisma/client";
-import { Pencil, Trash2 } from "lucide-react";
-import { deleteTimeEntry } from "@/actions/entries";
+import { Copy, Pencil, Trash2 } from "lucide-react";
+import { deleteTimeEntry, duplicateEntry } from "@/actions/entries";
 import { EntryForm } from "@/components/timesheet/EntryForm";
-import type { TemplateFieldConfig } from "@/lib/timesheet/fields";
+import { getVisibleResolvedFields, type StoredFieldConfig } from "@/lib/timesheet/fieldConfig";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -17,19 +17,27 @@ import {
 
 type EntryActionsProps = {
   entry: TimeEntry;
-  fields: TemplateFieldConfig[];
+  fieldConfig: StoredFieldConfig;
   periodId: string;
 };
 
-export function EntryActions({ entry, fields, periodId }: EntryActionsProps) {
+export function EntryActions({ entry, fieldConfig, periodId }: EntryActionsProps) {
   const [editOpen, setEditOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [dupPending, startDup] = useTransition();
+  const fields = getVisibleResolvedFields(fieldConfig);
 
   async function handleDelete() {
     if (!confirm("Delete this entry?")) return;
     setDeleting(true);
     await deleteTimeEntry(entry.id);
     setDeleting(false);
+  }
+
+  function handleDuplicate() {
+    startDup(async () => {
+      await duplicateEntry(entry.id);
+    });
   }
 
   return (
@@ -54,6 +62,16 @@ export function EntryActions({ entry, fields, periodId }: EntryActionsProps) {
           />
         </DialogContent>
       </Dialog>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="size-8"
+        onClick={handleDuplicate}
+        disabled={dupPending}
+        title="Duplicate row"
+      >
+        <Copy className="size-4" />
+      </Button>
       <Button
         variant="ghost"
         size="icon"

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { JOB_TITLE_PRESETS, PRESET_LIST } from "@/lib/timesheet/presets";
+import { normalizeFieldConfig } from "@/lib/timesheet/fieldConfig";
 
 describe("job-title presets", () => {
   it("defines four built-in presets", () => {
@@ -23,5 +24,14 @@ describe("job-title presets", () => {
   it("includes mileage on field engineer preset", () => {
     const fieldEngineer = JOB_TITLE_PRESETS.FIELD_ENGINEER;
     expect(fieldEngineer.fields.some((f) => f.fieldKey === "mileage")).toBe(true);
+  });
+
+  it("default field config uses stored shape", () => {
+    const config = normalizeFieldConfig({
+      builtIn: JOB_TITLE_PRESETS.CONSULTANT.fields,
+      custom: [],
+    });
+    expect(config.builtIn.length).toBeGreaterThan(0);
+    expect(config.custom).toEqual([]);
   });
 });

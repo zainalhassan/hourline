@@ -52,6 +52,7 @@ type SubmissionSettingsFormProps = {
   employerEmail: string;
   ccSelfOnSubmit: boolean;
   submitMessage: string;
+  emailConfigured: boolean;
 };
 
 export function SubmissionSettingsForm({
@@ -59,6 +60,7 @@ export function SubmissionSettingsForm({
   employerEmail,
   ccSelfOnSubmit,
   submitMessage,
+  emailConfigured,
 }: SubmissionSettingsFormProps) {
   const [state, formAction, pending] = useActionState(
     updateSubmissionSettings,
@@ -71,6 +73,18 @@ export function SubmissionSettingsForm({
 
   return (
     <form action={formAction} className="max-w-md space-y-6">
+      <div
+        className={`rounded-lg border px-3 py-2 text-sm ${
+          emailConfigured
+            ? "border-green-200 bg-green-50 text-green-900 dark:border-green-900 dark:bg-green-950 dark:text-green-100"
+            : "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100"
+        }`}
+      >
+        {emailConfigured
+          ? "Server email is configured — you can send timesheets from the weekly view."
+          : "Server email is not configured — preview PDF or export CSV still works. See docs/EMAIL.md on the server."}
+      </div>
+
       <div className="space-y-2">
         <Label htmlFor="employerName">Employer name</Label>
         <Input

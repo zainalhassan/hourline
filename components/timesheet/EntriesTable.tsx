@@ -7,28 +7,29 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { TIMESHEET_FIELDS, type EntryMetadata, type TemplateFieldConfig } from "@/lib/timesheet/fields";
+import {
+  getEntryFieldValue,
+  getFieldLabel,
+  getTableColumns,
+  type StoredFieldConfig,
+} from "@/lib/timesheet/fieldConfig";
 import { formatDuration } from "@/lib/timesheet/periods";
 import { EntryActions } from "@/components/timesheet/EntryActions";
 
 type EntriesTableProps = {
   entries: TimeEntry[];
-  fields: TemplateFieldConfig[];
+  fieldConfig: StoredFieldConfig;
   periodId: string;
   canEdit: boolean;
 };
 
-function getMeta(entry: TimeEntry): EntryMetadata {
-  return (entry.metadata as EntryMetadata) ?? {};
-}
-
-export function EntriesTable({ entries, fields, periodId, canEdit }: EntriesTableProps) {
-  const visibleMetaFields = fields.filter(
-    (f) =>
-      f.visible &&
-      f.fieldKey !== "durationMinutes" &&
-      f.fieldKey !== "mileage",
-  );
+export function EntriesTable({
+  entries,
+  fieldConfig,
+  periodId,
+  canEdit,
+}: EntriesTableProps) {
+  const columns = getTableColumns(fieldConfig);
 
   if (entries.length === 0) {
     return (
@@ -43,48 +44,44 @@ export function EntriesTable({ entries, fields, periodId, canEdit }: EntriesTabl
           <TableRow>
             <TableHead>Date</TableHead>
             <TableHead>Duration</TableHead>
-            {visibleMetaFields.map((f) => (
-              <TableHead key={f.fieldKey}>{TIMESHEET_FIELDS[f.fieldKey].label}</TableHead>
+            {columns.map((field) => (
+              <TableHead key={field.kind === "builtIn" ? field.fieldKey : field.id}>
+                {getFieldLabel(field)}
+              </TableHead>
             ))}
-            {fields.some((f) => f.visible && f.fieldKey === "mileage") && (
-              <TableHead>Mileage</TableHead>
-            )}
             {canEdit && <TableHead className="w-24">Actions</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
-          {entries.map((entry) => {
-            const meta = getMeta(entry);
-            return (
-              <TableRow key={entry.id}>
-                <TableCell>
-                  {entry.entryDate.toLocaleDateString("en-GB", {
-                    weekday: "short",
-                    day: "numeric",
-                    month: "short",
-                  })}
+          {entries.map((entry) => (
+            <TableRow key={entry.id}>
+              <TableCell>
+                {entry.entryDate.toLocaleDateString("en-GB", {
+                  weekday: "short",
+                  day: "numeric",
+                  month: "short",
+                })}
+              </TableCell>
+              <TableCell>{formatDuration(entry.durationMinutes)}</TableCell>
+              {columns.map((field) => (
+                <TableCell
+                  key={field.kind === "builtIn" ? field.fieldKey : field.id}
+                  className="max-w-[200px] truncate"
+                >
+                  {getEntryFieldValue(entry, field) || "—"}
                 </TableCell>
-                <TableCell>{formatDuration(entry.durationMinutes)}</TableCell>
-                {visibleMetaFields.map((f) => (
-                  <TableCell key={f.fieldKey} className="max-w-[200px] truncate">
-                    {f.fieldKey === "billable"
-                      ? meta.billable
-                        ? "Yes"
-                        : "No"
-                      : (meta[f.fieldKey as keyof EntryMetadata] as string) ?? "—"}
-                  </TableCell>
-                ))}
-                {fields.some((f) => f.visible && f.fieldKey === "mileage") && (
-                  <TableCell>{entry.mileage != null ? Number(entry.mileage) : "—"}</TableCell>
-                )}
-                {canEdit && (
-                  <TableCell>
-                    <EntryActions entry={entry} fields={fields} periodId={periodId} />
-                  </TableCell>
-                )}
-              </TableRow>
-            );
-          })}
+              ))}
+              {canEdit && (
+                <TableCell>
+                  <EntryActions
+                    entry={entry}
+                    fieldConfig={fieldConfig}
+                    periodId={periodId}
+                  />
+                </TableCell>
+              )}
+            </TableRow>
+          ))}
         </TableBody>
       </Table>
     </div>

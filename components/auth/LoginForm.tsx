@@ -38,7 +38,7 @@ export function LoginForm() {
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="email">Email</Label>
-        <Input id="email" name="email" type="email" required autoComplete="email" />
+        <Input id="email" name="email" type="email" required autoComplete="email" autoFocus />
       </div>
       <div className="space-y-2">
         <Label htmlFor="password">Password</Label>

@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { updateUserTemplate, type TemplateActionState } from "@/actions/templates";
 import { TemplateEditor } from "@/components/templates/TemplateEditor";
 import { JobTitlePreset } from "@prisma/client";
-import type { TemplateFieldConfig } from "@/lib/timesheet/fields";
+import type { StoredFieldConfig } from "@/lib/timesheet/fieldConfig";
 
 type EditTemplateFormProps = {
   templateId: string;
@@ -15,7 +15,7 @@ type EditTemplateFormProps = {
     name: string;
     description?: string;
     forkedFrom: JobTitlePreset;
-    fields: TemplateFieldConfig[];
+    fieldConfig: StoredFieldConfig;
   };
 };
 

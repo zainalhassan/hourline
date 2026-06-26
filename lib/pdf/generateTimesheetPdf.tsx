@@ -7,32 +7,26 @@ import {
   pdf,
 } from "@react-pdf/renderer";
 import { getAppDisplayName } from "@/lib/env";
-import { TIMESHEET_FIELDS, type TemplateFieldConfig } from "@/lib/timesheet/fields";
+import {
+  getFieldLabel,
+  getMileageFromEntry,
+  getTableColumns,
+  normalizeFieldConfig,
+  type StoredFieldConfig,
+} from "@/lib/timesheet/fieldConfig";
 import { formatDuration } from "@/lib/timesheet/periods";
 
 const styles = StyleSheet.create({
   page: {
     padding: 40,
-    fontSize: 10,
+    fontSize: 9,
     fontFamily: "Helvetica",
     color: "#1a1a1a",
   },
-  header: {
-    marginBottom: 20,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 11,
-    color: "#555",
-    marginBottom: 2,
-  },
-  table: {
-    marginTop: 12,
-  },
+  header: { marginBottom: 20 },
+  title: { fontSize: 20, fontWeight: "bold", marginBottom: 4 },
+  subtitle: { fontSize: 11, color: "#555", marginBottom: 2 },
+  table: { marginTop: 12 },
   tableHeader: {
     flexDirection: "row",
     backgroundColor: "#1BD974",
@@ -53,9 +47,9 @@ const styles = StyleSheet.create({
     padding: 6,
     backgroundColor: "#f9fafb",
   },
-  colDate: { width: "12%" },
-  colDuration: { width: "10%" },
-  colField: { width: "19.5%" },
+  colDate: { width: "14%" },
+  colDuration: { width: "12%" },
+  colDynamic: { flex: 1 },
   totals: {
     marginTop: 16,
     paddingTop: 8,
@@ -86,7 +80,7 @@ type PdfInput = {
   periodStart: Date;
   periodEnd: Date;
   templateName: string;
-  fields: TemplateFieldConfig[];
+  fieldConfig: StoredFieldConfig;
   entries: PdfEntry[];
 };
 
@@ -98,13 +92,19 @@ function formatDate(date: Date): string {
   });
 }
 
-function getFieldValue(entry: PdfEntry, fieldKey: string): string {
-  if (fieldKey === "durationMinutes") return formatDuration(entry.durationMinutes);
-  if (fieldKey === "mileage") return entry.mileage != null ? String(entry.mileage) : "—";
-  if (fieldKey === "billable") {
+function getPdfFieldValue(entry: PdfEntry, field: ReturnType<typeof getTableColumns>[number]): string {
+  if (field.kind === "builtIn" && field.fieldKey === "mileage") {
+    return entry.mileage != null ? String(entry.mileage) : "—";
+  }
+  if (field.kind === "builtIn" && field.fieldKey === "billable") {
     return entry.metadata.billable ? "Yes" : "No";
   }
-  const value = entry.metadata[fieldKey];
+  if (field.kind === "builtIn") {
+    const value = entry.metadata[field.fieldKey];
+    return value != null && String(value).trim() ? String(value) : "—";
+  }
+  const value = entry.metadata[field.id];
+  if (field.type === "checkbox") return value ? "Yes" : "No";
   return value != null && String(value).trim() ? String(value) : "—";
 }
 
@@ -115,12 +115,12 @@ function TimesheetDocument({
   input: PdfInput;
   generatedAt: string;
 }) {
-  const visibleFields = input.fields
-    .filter((f) => f.visible && f.fieldKey !== "durationMinutes" && f.fieldKey !== "mileage")
-    .slice(0, 3);
-
+  const columns = getTableColumns(normalizeFieldConfig(input.fieldConfig));
   const totalMinutes = input.entries.reduce((sum, e) => sum + e.durationMinutes, 0);
-  const totalMileage = input.entries.reduce((sum, e) => sum + (e.mileage ?? 0), 0);
+  const totalMileage = input.entries.reduce(
+    (sum, e) => sum + (e.mileage ?? 0),
+    0,
+  );
   const appName = getAppDisplayName();
 
   return (
@@ -140,32 +140,36 @@ function TimesheetDocument({
           <View style={styles.tableHeader}>
             <Text style={styles.colDate}>Date</Text>
             <Text style={styles.colDuration}>Hours</Text>
-            {visibleFields.map((f) => (
-              <Text key={f.fieldKey} style={styles.colField}>
-                {TIMESHEET_FIELDS[f.fieldKey].label}
+            {columns.map((field) => (
+              <Text
+                key={field.kind === "builtIn" ? field.fieldKey : field.id}
+                style={styles.colDynamic}
+              >
+                {getFieldLabel(field)}
               </Text>
             ))}
-            <Text style={styles.colField}>Mileage</Text>
           </View>
           {input.entries.map((entry, i) => (
             <View key={i} style={i % 2 === 0 ? styles.tableRow : styles.tableRowAlt}>
               <Text style={styles.colDate}>{formatDate(entry.entryDate)}</Text>
               <Text style={styles.colDuration}>{formatDuration(entry.durationMinutes)}</Text>
-              {visibleFields.map((f) => (
-                <Text key={f.fieldKey} style={styles.colField}>
-                  {getFieldValue(entry, f.fieldKey)}
+              {columns.map((field) => (
+                <Text
+                  key={field.kind === "builtIn" ? field.fieldKey : field.id}
+                  style={styles.colDynamic}
+                >
+                  {getPdfFieldValue(entry, field)}
                 </Text>
               ))}
-              <Text style={styles.colField}>
-                {entry.mileage != null ? String(entry.mileage) : "—"}
-              </Text>
             </View>
           ))}
         </View>
 
         <View style={styles.totals}>
           <Text>Total hours: {formatDuration(totalMinutes)}</Text>
-          {totalMileage > 0 && <Text>Total mileage: {totalMileage.toFixed(1)} miles</Text>}
+          {totalMileage > 0 && (
+            <Text>Total mileage: {totalMileage.toFixed(1)} miles</Text>
+          )}
         </View>
 
         <Text style={styles.footer} fixed>
@@ -182,9 +186,7 @@ export async function generateTimesheetPdf(input: PdfInput): Promise<Buffer> {
     timeStyle: "short",
   });
 
-  const doc = (
-    <TimesheetDocument input={input} generatedAt={generatedAt} />
-  );
+  const doc = <TimesheetDocument input={input} generatedAt={generatedAt} />;
 
   const blob = await pdf(doc).toBlob();
   const arrayBuffer = await blob.arrayBuffer();

@@ -2,7 +2,7 @@ import { redirect, notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { resolveUserTemplate } from "@/lib/timesheet/templates";
-import type { TemplateFieldConfig } from "@/lib/timesheet/fields";
+import { normalizeFieldConfig } from "@/lib/timesheet/fieldConfig";
 import { EditTemplateForm } from "@/components/templates/EditTemplateForm";
 import { PageHeader } from "@/components/transit/PageHeader";
 import { SectionCard } from "@/components/transit/SectionCard";
@@ -33,7 +33,7 @@ export default async function EditTemplatePage({ params }: Props) {
             name: template.name,
             description: template.description ?? undefined,
             forkedFrom: template.forkedFrom,
-            fields: template.fieldConfig as TemplateFieldConfig[],
+            fieldConfig: normalizeFieldConfig(template.fieldConfig),
           }}
         />
       </SectionCard>

@@ -5,7 +5,10 @@ import { JobTitlePreset } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getDefaultFieldConfig } from "@/lib/timesheet/presets";
-import type { TemplateFieldConfig } from "@/lib/timesheet/fields";
+import {
+  parseStoredFieldConfigFromForm,
+  normalizeFieldConfig,
+} from "@/lib/timesheet/fieldConfig";
 import {
   createUserTemplateSchema,
   updateActiveTemplateSchema,
@@ -16,16 +19,6 @@ export type TemplateActionState = {
   error?: string;
   success?: boolean;
 };
-
-function parseFieldConfig(formData: FormData): TemplateFieldConfig[] {
-  const raw = formData.get("fieldConfig");
-  if (typeof raw !== "string") return [];
-  try {
-    return JSON.parse(raw) as TemplateFieldConfig[];
-  } catch {
-    return [];
-  }
-}
 
 export async function setActiveTemplate(
   _prev: TemplateActionState,
@@ -90,7 +83,7 @@ export async function createUserTemplate(
   }
 
   const fieldConfig =
-    parseFieldConfig(formData) ||
+    parseStoredFieldConfigFromForm(formData) ||
     getDefaultFieldConfig(parsed.data.forkedFrom as JobTitlePreset);
 
   const template = await prisma.userTimesheetTemplate.create({
@@ -139,8 +132,8 @@ export async function updateUserTemplate(
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
 
-  const fieldConfig = parseFieldConfig(formData);
-  if (fieldConfig.length === 0) {
+  const fieldConfig = parseStoredFieldConfigFromForm(formData);
+  if (!fieldConfig) {
     return { error: "Invalid field configuration" };
   }
 

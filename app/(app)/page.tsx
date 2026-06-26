@@ -3,21 +3,27 @@ import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getUserById } from "@/lib/user";
+import { isEmailConfigured } from "@/lib/env";
 import {
   getAdjacentWeeks,
   getOrCreatePeriod,
   parseWeekParam,
 } from "@/lib/timesheet/periodQueries";
 import { getUserActiveTemplate } from "@/lib/timesheet/templates";
-import { formatDuration, toDateInputValue } from "@/lib/timesheet/periods";
+import { getVisibleResolvedFields, normalizeFieldConfig } from "@/lib/timesheet/fieldConfig";
+import {
+  formatDuration,
+  formatWeekLabel,
+  toDateInputValue,
+} from "@/lib/timesheet/periods";
 import { EntriesTable } from "@/components/timesheet/EntriesTable";
 import { EntryForm } from "@/components/timesheet/EntryForm";
-import { PeriodActions } from "@/components/timesheet/PeriodActions";
+import { QuickAddSheet } from "@/components/timesheet/QuickAddSheet";
+import { SubmissionPanel } from "@/components/timesheet/SubmissionPanel";
+import { TodayHero } from "@/components/timesheet/TodayHero";
 import { WeekSelector } from "@/components/timesheet/WeekSelector";
-import { PageHeader } from "@/components/transit/PageHeader";
 import { SectionCard } from "@/components/transit/SectionCard";
-import { StatCard } from "@/components/transit/StatCard";
-import type { TemplateFieldConfig } from "@/lib/timesheet/fields";
+import type { StoredFieldConfig } from "@/lib/timesheet/fieldConfig";
 
 type HomeProps = {
   searchParams: Promise<{ week?: string }>;
@@ -31,26 +37,42 @@ export default async function HomePage({ searchParams }: HomeProps) {
   const weekDate = parseWeekParam(params.week);
   const period = await getOrCreatePeriod(session.user.id, weekDate);
   const user = await getUserById(session.user.id);
-  const template = period.fieldConfigSnapshot
-    ? {
-        ...(await getUserActiveTemplate(session.user.id)),
-        fields: period.fieldConfigSnapshot as TemplateFieldConfig[],
-      }
-    : await getUserActiveTemplate(session.user.id);
+  const activeTemplate = await getUserActiveTemplate(session.user.id);
+
+  const fieldConfig: StoredFieldConfig = period.fieldConfigSnapshot
+    ? normalizeFieldConfig(period.fieldConfigSnapshot)
+    : activeTemplate.fieldConfig;
+
+  const template = {
+    ...activeTemplate,
+    fieldConfig,
+    fields: getVisibleResolvedFields(fieldConfig),
+  };
 
   const { prev, next } = getAdjacentWeeks(period.startDate);
   const totalMinutes = period.entries.reduce((s, e) => s + e.durationMinutes, 0);
-  const totalMileage = period.entries.reduce(
-    (s, e) => s + (e.mileage ? Number(e.mileage) : 0),
-    0,
-  );
   const canEdit = period.status !== "SENT";
+  const lastEntry =
+    period.entries.length > 0
+      ? period.entries[period.entries.length - 1]
+      : null;
+
+  const today = new Date();
+  const todayLabel = today.toLocaleDateString("en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      <PageHeader
-        title="Timesheet"
-        description={`${template.name} · ${period.status.toLowerCase()}`}
+    <div className="mx-auto max-w-6xl space-y-4 pb-24 lg:space-y-6 lg:pb-8">
+      <TodayHero
+        todayLabel={todayLabel}
+        weekLabel={formatWeekLabel(period.startDate, period.endDate)}
+        totalMinutes={totalMinutes}
+        entryCount={period.entries.length}
+        templateName={template.name}
+        status={period.status}
       />
 
       <WeekSelector
@@ -59,80 +81,54 @@ export default async function HomePage({ searchParams }: HomeProps) {
         nextWeek={toDateInputValue(next)}
       />
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard
-          label="Total hours"
-          value={formatDuration(totalMinutes)}
-          headerColor="var(--color-route-blue)"
-        />
-        <StatCard
-          label="Entries"
-          value={String(period.entries.length)}
-          headerColor="var(--color-route-green)"
-        />
-        {totalMileage > 0 && (
-          <StatCard
-            label="Mileage"
-            value={`${totalMileage.toFixed(1)} mi`}
-            headerColor="var(--color-route-orange)"
-          />
-        )}
-      </div>
+      <SubmissionPanel
+        periodId={period.id}
+        status={period.status}
+        hasEmployerEmail={Boolean(user?.employerEmail)}
+        emailConfigured={isEmailConfigured()}
+        entryCount={period.entries.length}
+        submissions={period.submissions.map((s) => ({
+          id: s.id,
+          sentAt: s.sentAt,
+          recipientEmail: s.recipientEmail,
+        }))}
+      />
 
       <SectionCard
-        title="Actions"
-        description="Prepare, preview, or send this week's timesheet."
-        headerColor="var(--color-route-purple)"
+        title="This week"
+        description={`${period.entries.length} entries · ${formatDuration(totalMinutes)}`}
+        headerColor="var(--color-route-cyan)"
       >
-        <PeriodActions
+        <EntriesTable
+          entries={period.entries}
+          fieldConfig={fieldConfig}
           periodId={period.id}
-          status={period.status}
-          hasEmployerEmail={Boolean(user?.employerEmail)}
-          entryCount={period.entries.length}
+          canEdit={canEdit}
         />
-        {period.submissions.length > 0 && (
-          <div className="mt-4 text-sm text-muted-foreground">
-            <p className="font-medium text-foreground">Submission history</p>
-            <ul className="mt-1 space-y-1">
-              {period.submissions.map((s) => (
-                <li key={s.id}>
-                  Sent to {s.recipientEmail} on{" "}
-                  {s.sentAt.toLocaleString("en-GB", {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  })}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
       </SectionCard>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {canEdit && (
+      {canEdit && (
+        <div className="hidden lg:block">
           <SectionCard
             title="Add entry"
-            description="Log time for this week."
+            description="Full form with all fields."
             headerColor={template.headerColor}
           >
-            <EntryForm periodId={period.id} fields={template.fields} />
+            <EntryForm
+              periodId={period.id}
+              fields={template.fields}
+              lastEntry={lastEntry}
+            />
           </SectionCard>
-        )}
+        </div>
+      )}
 
-        <SectionCard
-          title="This week"
-          description={`${period.entries.length} entries`}
-          headerColor="var(--color-route-cyan)"
-          className={canEdit ? "" : "lg:col-span-2"}
-        >
-          <EntriesTable
-            entries={period.entries}
-            fields={template.fields}
-            periodId={period.id}
-            canEdit={canEdit}
-          />
-        </SectionCard>
-      </div>
+      <QuickAddSheet
+        periodId={period.id}
+        fields={template.fields}
+        lastEntry={lastEntry}
+        canEdit={canEdit}
+      />
 
       {!user?.employerEmail && (
         <p className="text-center text-sm text-muted-foreground">

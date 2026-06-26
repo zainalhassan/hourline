@@ -42,6 +42,11 @@ export function AppNav() {
 
           <div className="flex items-center gap-1 lg:hidden">
             <ThemeToggle />
+            <form action={signOutUser}>
+              <Button type="submit" variant="ghost" size="sm">
+                Sign out
+              </Button>
+            </form>
           </div>
         </div>
       </header>

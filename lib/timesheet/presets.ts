@@ -1,5 +1,6 @@
 import { JobTitlePreset } from "@prisma/client";
 import type { TemplateFieldConfig, TimesheetFieldKey } from "@/lib/timesheet/fields";
+import type { StoredFieldConfig } from "@/lib/timesheet/fieldConfig";
 
 export type PresetDefinition = {
   preset: JobTitlePreset;
@@ -84,6 +85,9 @@ export function getPresetLabel(preset: JobTitlePreset): string {
   return JOB_TITLE_PRESETS[preset]?.label ?? preset;
 }
 
-export function getDefaultFieldConfig(preset: JobTitlePreset): TemplateFieldConfig[] {
-  return JOB_TITLE_PRESETS[preset].fields.map((f) => ({ ...f }));
+export function getDefaultFieldConfig(preset: JobTitlePreset): StoredFieldConfig {
+  return {
+    builtIn: JOB_TITLE_PRESETS[preset].fields.map((f) => ({ ...f })),
+    custom: [],
+  };
 }

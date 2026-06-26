@@ -1,6 +1,7 @@
 import { PeriodStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getUserActiveTemplate } from "@/lib/timesheet/templates";
+import { validatePeriodEntries } from "@/lib/timesheet/periodValidation";
 import {
   addWeeks,
   endOfWeek,
@@ -32,7 +33,7 @@ export async function getOrCreatePeriod(userId: string, weekStart?: Date) {
       endDate: end,
       presetUsed: template.preset,
       userTemplateId: template.userTemplateId,
-      fieldConfigSnapshot: template.fields,
+      fieldConfigSnapshot: template.fieldConfig,
     },
     include: {
       entries: { orderBy: { entryDate: "asc" } },
@@ -55,9 +56,15 @@ export async function requirePeriod(periodId: string, userId: string) {
 
 export async function markPeriodReady(periodId: string, userId: string) {
   const period = await requirePeriod(periodId, userId);
-  if (period.entries.length === 0) {
-    return { error: "Add at least one entry before marking ready" };
+  const template = await getUserActiveTemplate(userId);
+  const fieldConfig =
+    period.fieldConfigSnapshot ?? template.fieldConfig;
+
+  const validationError = validatePeriodEntries(period.entries, fieldConfig);
+  if (validationError) {
+    return { error: validationError };
   }
+
   await prisma.timesheetPeriod.update({
     where: { id: periodId },
     data: { status: PeriodStatus.READY },

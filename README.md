@@ -1,6 +1,6 @@
 # Hourline
 
-Personal timesheet app with job-title templates, PDF export, and employer email delivery. Built on the same stack as Waypoint with the Transit design system.
+Personal timesheet app with job-title templates, PDF export, and employer email delivery. Uses the Transit design system.
 
 ## Features
 

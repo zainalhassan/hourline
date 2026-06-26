@@ -14,21 +14,22 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_USER: waypoint
-          POSTGRES_PASSWORD: waypoint
-          POSTGRES_DB: waypoint
+          POSTGRES_USER: hourline
+          POSTGRES_PASSWORD: hourline
+          POSTGRES_DB: hourline
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U waypoint -d waypoint"
+          --health-cmd "pg_isready -U hourline -d hourline"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 5
 
     env:
-      DATABASE_URL: postgresql://waypoint:waypoint@localhost:5432/waypoint
-      AUTH_SECRET: ci-test-secret
+      DATABASE_URL: postgresql://hourline:hourline@localhost:5432/hourline
+      AUTH_SECRET: ci-test-secret-must-be-at-least-32-chars-long
       AUTH_URL: http://localhost:3000
+      APP_DISPLAY_NAME: Hourline
 
     steps:
       - uses: actions/checkout@v4

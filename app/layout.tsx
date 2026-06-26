@@ -3,6 +3,7 @@ import { Geist_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { SessionProvider } from "@/components/providers/SessionProvider";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
+import { getAppDisplayName } from "@/lib/env";
 import "./globals.css";
 
 const plusJakarta = Plus_Jakarta_Sans({
@@ -16,8 +17,10 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const appName = getAppDisplayName();
+
 export const metadata: Metadata = {
-  title: "Hourline — Timesheet",
+  title: `${appName} — Timesheet`,
   description: "Log your hours, customise your template, and send a polished PDF to your employer.",
 };
 

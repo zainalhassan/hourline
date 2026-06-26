@@ -1,16 +1,16 @@
 services:
   db:
     image: postgres:16-alpine
-    container_name: waypoint-db
+    container_name: hourline-db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: waypoint
+      POSTGRES_USER: hourline
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: waypoint
+      POSTGRES_DB: hourline
     volumes:
-      - waypoint_pg_data:/var/lib/postgresql/data
+      - hourline_pg_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U waypoint -d waypoint"]
+      test: ["CMD-SHELL", "pg_isready -U hourline -d hourline"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -20,7 +20,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: migrate
-    container_name: waypoint-migrate
+    container_name: hourline-migrate
     env_file:
       - .env
     depends_on:
@@ -32,14 +32,15 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: waypoint-app
+    container_name: hourline-app
     restart: unless-stopped
     ports:
-      - "127.0.0.1:3010:3000"
+      - "127.0.0.1:3011:3000"
     env_file:
       - .env
     environment:
       NODE_ENV: production
+      APP_DISPLAY_NAME: Hourline
     entrypoint: ["node", "server.js"]
     depends_on:
       db:
@@ -48,4 +49,4 @@ services:
         condition: service_completed_successfully
 
 volumes:
-  waypoint_pg_data:
+  hourline_pg_data:

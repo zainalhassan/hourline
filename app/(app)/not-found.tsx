@@ -7,7 +7,7 @@ export default function AppNotFound() {
   return (
     <EmptyState
       title="Page not found"
-      description="This pipeline or item may have been removed."
+      description="This page may have been removed or the link is incorrect."
       className="min-h-[40vh] justify-center"
     >
       <Link href="/" className={cn(buttonVariants())}>

@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { Settings } from "lucide-react";
 import { signOutUser } from "@/actions/auth";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
+import { getAppDisplayName } from "@/lib/env";
 
 const NAV_LINKS = [
   { href: "/", label: "Timesheet" },
@@ -12,12 +12,14 @@ const NAV_LINKS = [
 ] as const;
 
 export function AppNav() {
+  const appName = getAppDisplayName();
+
   return (
     <>
       <header className="sticky top-0 z-30 border-b border-border/80 bg-card/95 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-card/80">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 lg:h-[var(--component-nav-height)]">
           <Link href="/" className="text-lg font-bold tracking-tight text-primary">
-            Hourline
+            {appName}
           </Link>
 
           <nav className="hidden items-center gap-1 lg:flex lg:gap-2">

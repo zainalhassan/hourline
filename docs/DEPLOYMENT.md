@@ -1,6 +1,6 @@
 # Deployment
 
-Waypoint is designed to deploy as a **self-contained Docker stack**.
+Hourline deploys as a **self-contained Docker stack**.
 
 ## VPS deployment (recommended)
 
@@ -13,8 +13,8 @@ Waypoint is designed to deploy as a **self-contained Docker stack**.
 ### Steps
 
 ```bash
-git clone <your-repo> waypoint
-cd waypoint
+git clone <your-repo> hourline
+cd hourline
 cp .env.example .env
 ```
 
@@ -22,29 +22,39 @@ Edit `.env`:
 
 ```env
 AUTH_SECRET=<openssl rand -base64 32>
-AUTH_URL=https://waypoint.yourdomain.com
-DATABASE_URL=postgresql://waypoint:waypoint@db:5432/waypoint
+AUTH_URL=https://hourline.yourdomain.com
+DATABASE_URL=postgresql://hourline:<password>@db:5432/hourline
+APP_DISPLAY_NAME=Hourline
+POSTGRES_PASSWORD=<strong-password>
 ```
 
 Start production stack:
 
 ```bash
-docker compose --profile prod up -d --build
+docker compose -f docker-compose.prod.yml up -d --build
 ```
 
-Migrations run automatically on container start via `docker/entrypoint.sh`.
+Migrations run automatically via the `migrate` service before the app starts.
 
 ### HTTPS with Caddy
 
 Example `Caddyfile`:
 
 ```
-waypoint.yourdomain.com {
-  reverse_proxy localhost:3000
+hourline.yourdomain.com {
+  reverse_proxy localhost:3011
 }
 ```
 
 Run Caddy on the host or as a separate container on the same Docker network.
+
+## Local development
+
+```bash
+docker compose up --build
+```
+
+Open http://localhost:3001
 
 ## Environment checklist
 
@@ -53,13 +63,15 @@ Run Caddy on the host or as a separate container on the same Docker network.
 | `AUTH_SECRET` | Yes | 32+ random characters |
 | `AUTH_URL` | Yes | Full public URL, no trailing slash |
 | `DATABASE_URL` | Yes | Use internal `db` hostname in Compose |
+| `APP_DISPLAY_NAME` | No | Defaults to `Hourline` |
+| `SMTP_*` | No | Required only for email send |
 
 ## Backups
 
 Back up the Postgres volume:
 
 ```bash
-docker compose exec db pg_dump -U waypoint waypoint > backup.sql
+docker compose exec db pg_dump -U hourline hourline > backup.sql
 ```
 
 ## Alternative: Vercel + Neon
@@ -68,12 +80,7 @@ Possible but not the primary path. You would:
 
 1. Host Postgres on [Neon](https://neon.tech)
 2. Deploy Next.js to [Vercel](https://vercel.com)
-3. Run `npx prisma migrate deploy` against Neon
-4. Set env vars in Vercel dashboard
+3. Set the same env vars in the Vercel project
+4. Run `npx prisma migrate deploy` against Neon on deploy
 
-This splits the stack and loses the single `docker compose` deploy model.
-
-## Health checks
-
-- App: `GET /` should return 200 (redirects to login if unauthenticated)
-- DB: `docker compose ps` shows `db` healthy
+Email (SMTP) and PDF generation work the same; ensure `AUTH_URL` matches the Vercel domain.

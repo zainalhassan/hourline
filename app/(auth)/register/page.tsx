@@ -1,12 +1,15 @@
 import Link from "next/link";
 import { RegisterForm } from "@/components/auth/RegisterForm";
 import { SectionCard } from "@/components/transit/SectionCard";
+import { getAppDisplayName } from "@/lib/env";
 
 export default function RegisterPage() {
+  const appName = getAppDisplayName();
+
   return (
     <SectionCard
       title="Create account"
-      description="Create your Hourline account and start logging time."
+      description={`Create your ${appName} account and start logging time.`}
       headerColor="var(--color-route-teal)"
     >
       <RegisterForm />

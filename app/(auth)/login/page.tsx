@@ -2,6 +2,7 @@ import Link from "next/link";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { SectionCard } from "@/components/transit/SectionCard";
 import { TransitBanner } from "@/components/transit/TransitBanner";
+import { getAppDisplayName } from "@/lib/env";
 
 export default async function LoginPage({
   searchParams,
@@ -9,11 +10,12 @@ export default async function LoginPage({
   searchParams: Promise<{ registered?: string }>;
 }) {
   const params = await searchParams;
+  const appName = getAppDisplayName();
 
   return (
     <SectionCard
       title="Sign in"
-      description="Log hours and send timesheets with Hourline."
+      description={`Log hours and send timesheets with ${appName}.`}
       headerColor="var(--color-brand-primary)"
     >
       {params.registered && (

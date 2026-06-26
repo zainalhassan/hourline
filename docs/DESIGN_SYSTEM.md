@@ -1,6 +1,6 @@
 # Design System
 
-Waypoint uses the shared [**Transit theme**](https://github.com/zainalhassan/design-system) from `@zainalhassan/design-system` — inspired by [Transit 6.0](https://blog.transitapp.com/six-o/).
+Hourline uses the shared [**Transit theme**](https://github.com/zainalhassan/design-system) from `@zainalhassan/design-system` — inspired by [Transit 6.0](https://blog.transitapp.com/six-o/).
 
 ## Source of truth
 
@@ -15,7 +15,7 @@ Waypoint uses the shared [**Transit theme**](https://github.com/zainalhassan/des
 
 1. **Edit tokens** in the `design-system` repo (`themes/transit/tokens.json`)
 2. Run `npm run build` in `design-system` to regenerate `dist/`
-3. **Bump the dependency** in Waypoint (`npm install` picks up local `file:../design-system`)
+3. **Bump the dependency** in Hourline (`npm install` picks up the updated package)
 4. **Adjust shadcn mapping** in `globals.css` only if new semantic tokens are added
 
 ## Figma setup
@@ -43,14 +43,14 @@ UI built with **shadcn/ui** in `components/ui/`. Typography: **Plus Jakarta Sans
 
 Domain components:
 
-- `PipelineCard` → pipeline list cards
-- `ItemTable` → pipeline dashboard table
-- `StageBadge` → route-coloured status pill
-- `SankeyChart` → analytics flow chart
+- `SectionCard` / `PageHeader` → page layout
+- `StatCard` → weekly totals
+- `EntriesTable` / `EntryForm` → timesheet logging
+- `TemplateEditor` → personal template field config
 
 ## Principles
 
 1. **Tokens over hardcoded values** — import from `@zainalhassan/design-system`
 2. **Theme lives in design-system repo** — not in this project
-3. **Stages use route palette** — `var(--color-route-*)` where appropriate
-4. **Dark mode** — add `.dark` class on `<html>` (Neon Dark Mode tokens)
+3. **Route palette for accents** — `var(--color-route-*)` where appropriate
+4. **Dark mode** — `next-themes` with Transit dark tokens

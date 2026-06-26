@@ -2,98 +2,75 @@
 
 ## Overview
 
-Waypoint is a multi-user pipeline tracker. Users create **pipelines** from built-in or **user templates**, add **items**, and move them through **stages**. Every stage change is logged as a **StageEvent** for analytics and Sankey visualization.
-
-A **template marketplace** lets users publish, copy, rate, like, and comment on shared stage flows. **Linked copies** stay in sync with the author via a sync wizard when stages change.
+Hourline is a personal timesheet app. Users pick a **job-title preset** or **personal template**, log **time entries** per week, mark a **timesheet period** ready, then preview a PDF and email it to their employer.
 
 ```mermaid
-flowchart TB
-  User --> Pipeline
-  User --> UserTemplate
-  UserTemplate --> Marketplace
-  UserTemplate --> Pipeline
-  Pipeline --> Stage
-  Pipeline --> Item
-  Item --> StageEvent
-  StageEvent --> Sankey[Sankey analytics]
-  StageEvent --> Durations[Duration analytics]
+flowchart LR
+  subgraph templates [Template layers]
+    Preset["Built-in job-title presets"]
+    Personal["User personal template"]
+    Preset --> Personal
+  end
+  subgraph timesheet [Timesheet flow]
+    WeekView["Weekly entry grid"]
+    Draft["Draft period"]
+    PDF["PDF + watermark"]
+    Email["Email to employer"]
+  end
+  Personal --> WeekView
+  WeekView --> Draft
+  Draft --> PDF
+  PDF --> Email
 ```
 
 ## Data model
 
 | Entity | Purpose |
 |--------|---------|
-| `User` | Account (email + bcrypt password), default currency |
-| `UserTemplate` | Reusable custom stage flow; can be public, forked, linked to source |
-| `UserTemplateStage` | Stages defined on a user template |
-| `TemplateLike` / `TemplateRating` / `TemplateComment` | Marketplace engagement |
-| `Pipeline` | Named tracker instance; optional `userTemplateId`, `isArchived` |
-| `Stage` | Ordered step in a pipeline (`isArchived` after template sync) |
-| `Item` | Single tracked opportunity with template-specific `metadata` JSON |
-| `StageEvent` | Transition log (`fromStage` → `toStage`) with `occurredAt` |
+| `User` | Account, employer email settings, active template selection |
+| `UserTimesheetTemplate` | Personal template forked from a preset with `fieldConfig` JSON |
+| `TimesheetPeriod` | Week (or period) with `DRAFT` / `READY` / `SENT` status and frozen field snapshot |
+| `TimeEntry` | Single log line: date, duration, mileage, metadata JSON |
+| `Submission` | Audit log when a period PDF is emailed |
 
-Built-in templates: `JOB_SEARCH`, `GRAD_SCHOOL`, `SALES`, `INVESTMENTS`, `CUSTOM` (user-template pipelines use CUSTOM).
+Built-in presets live in code (`lib/timesheet/presets.ts`): Field Engineer, Office/Desk, Consultant, Freelancer.
 
 ## Auth flow
 
 - **Auth.js v5** with JWT sessions and credentials provider
-- Passwords hashed with **bcrypt** (12 rounds); change password in Settings
-- `middleware.ts` protects all routes except `/api/auth`, static assets, favicon
-- All data queries scoped by `session.user.id`
+- Passwords hashed with **bcrypt** (12 rounds)
+- `middleware.ts` protects app routes; unauthenticated users redirect to `/login`
 
 ## Server actions
 
-| Action | File | Responsibility |
-|--------|------|----------------|
-| `registerUser` | `actions/auth.ts` | Create user |
-| `createPipeline` | `actions/pipelines.ts` | Template → pipeline + stages |
-| `updatePipeline` | `actions/pipelines.ts` | Rename pipeline |
-| `archivePipeline` | `actions/pipelines.ts` | Soft-hide pipeline from home |
-| `deletePipeline` | `actions/pipelines.ts` | Permanent delete |
-| `createItem` | `actions/items.ts` | Item + initial stage event |
-| `updateItem` | `actions/items.ts` | Edit item fields and metadata |
-| `deleteItem` | `actions/items.ts` | Remove item and events |
-| `updateItemStage` / `moveItemToStage` | `actions/items.ts` | Append event, update current stage |
-| `createUserTemplate` … | `actions/templates.ts` | Template CRUD, sync, unlink |
-| `publishTemplate` … | `actions/marketplace.ts` | Marketplace social actions |
-| `updateUserSettings` / `changePassword` | `actions/settings.ts` | Profile and security |
+| Action | File | Purpose |
+|--------|------|---------|
+| `registerUser` | `actions/auth.ts` | Create account |
+| `createTimeEntry` / `updateTimeEntry` / `deleteTimeEntry` | `actions/entries.ts` | CRUD entries |
+| `preparePeriodAction` | `actions/periods.ts` | Mark period ready |
+| `sendTimesheetToEmployer` | `actions/submissions.ts` | PDF + email |
+| `createUserTemplate` / `updateUserTemplate` | `actions/templates.ts` | Personal templates |
+| `updateUserSettings` | `actions/settings.ts` | Profile and submission prefs |
 
-## Pipeline UX
+All mutations validate with **Zod** and scope data by `session.user.id`.
 
-- **Table view** — sortable, filterable item list with template-aware columns
-- **Board view** — kanban columns per stage; drag-and-drop calls `moveItemToStage`
-- **Item detail** — edit/delete, stage update form, timeline
-- **Analytics** — Sankey flow, conversion stats, stage duration metrics, investment breakdown
-- **CSV export** — `GET /api/pipelines/[id]/export`
+## PDF and email
 
-## Analytics
+1. User marks period `READY`
+2. Preview via `GET /api/periods/[periodId]/pdf`
+3. Send loads period + entries + settings → `@react-pdf/renderer` → Nodemailer attachment
+4. `Submission` row created; period status → `SENT`
 
-1. Fetch `StageEvent` rows for a pipeline
-2. **Sankey:** group by `(fromStage, toStage)` → ECharts via `lib/sankey/buildSankeyData.ts`
-3. **Durations:** average days per stage, transition counts, time-to-terminal via `lib/analytics/durations.ts`
-4. **Stats:** template-specific conversion labels via `lib/sankey/stats.ts`
+PDF footer watermark: `Generated with {APP_DISPLAY_NAME} · {date} · {user email}`
 
-## Marketplace
+## UI
 
-- Public templates browsed at `/marketplace` with search, min-stage filter, sort tabs
-- Metrics: likes, copies, ratings, comments, **pipeline usage count**
-- Copy as linked fork (auto-sync) or independent copy
-- Sync wizard when author removes stages that contain items
+- **Next.js App Router** with server components for data pages
+- **Transit design system** via `@zainalhassan/design-system` + shadcn/ui wrappers
+- Domain components in `components/timesheet/`, `components/templates/`, `components/transit/`
 
-## Database access
+## Security
 
-Prisma 7 uses the **PostgreSQL driver adapter** (`@prisma/adapter-pg` + `pg`) in `lib/prisma.ts`.
-
-## Docker
-
-- **db:** Postgres 16 with healthcheck
-- **app:** Dev image with volume mount + hot reload
-- **app-prod:** Multi-stage standalone Next.js image
-- **entrypoint:** `prisma migrate deploy` before start
-
-## Security notes
-
-- Row-level isolation via `userId` on pipelines and templates
-- Secrets in `~/.config/dev-setup/env` (never in git)
-- Zod validation on all server action inputs
-- `AUTH_SECRET` required in production
+- Row-level isolation via `userId` on periods, templates, and entries
+- Periods in `SENT` status are read-only
+- SMTP credentials server-side only

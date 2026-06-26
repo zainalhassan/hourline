@@ -18,7 +18,7 @@ export default function AppError({
   return (
     <EmptyState
       title="Something went wrong"
-      description="An unexpected error occurred. Try again or return to your pipelines."
+      description="An unexpected error occurred. Try again or return to your timesheet."
       className="min-h-[40vh] justify-center"
     >
       <Button type="button" onClick={reset}>

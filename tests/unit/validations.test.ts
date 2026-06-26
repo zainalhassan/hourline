@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
-  createItemSchema,
-  createPipelineSchema,
+  createEntrySchema,
+  createUserTemplateSchema,
   loginSchema,
   registerSchema,
+  sendTimesheetSchema,
 } from "@/lib/validations";
 
 describe("validations", () => {
@@ -33,13 +34,37 @@ describe("validations", () => {
     expect(result.success).toBe(true);
   });
 
-  it("validates pipeline name", () => {
-    expect(createPipelineSchema.safeParse({ name: "My Pipeline" }).success).toBe(true);
-    expect(createPipelineSchema.safeParse({ name: "" }).success).toBe(false);
+  it("validates user template name", () => {
+    expect(
+      createUserTemplateSchema.safeParse({
+        name: "My field sheet",
+        forkedFrom: "FIELD_ENGINEER",
+      }).success,
+    ).toBe(true);
+    expect(
+      createUserTemplateSchema.safeParse({
+        name: "",
+        forkedFrom: "FIELD_ENGINEER",
+      }).success,
+    ).toBe(false);
   });
 
-  it("validates item title", () => {
-    expect(createItemSchema.safeParse({ title: "Acme role" }).success).toBe(true);
-    expect(createItemSchema.safeParse({ title: "" }).success).toBe(false);
+  it("validates time entry input", () => {
+    expect(
+      createEntrySchema.safeParse({
+        entryDate: "2026-06-02",
+        durationHours: 2,
+        durationMinutes: 30,
+      }).success,
+    ).toBe(true);
+  });
+
+  it("validates send timesheet input", () => {
+    expect(
+      sendTimesheetSchema.safeParse({
+        periodId: "period_123",
+      }).success,
+    ).toBe(true);
+    expect(sendTimesheetSchema.safeParse({ periodId: "" }).success).toBe(false);
   });
 });

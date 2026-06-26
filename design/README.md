@@ -1,6 +1,6 @@
 # Design
 
-Waypoint uses the shared **Transit theme** from [`@zainalhassan/design-system`](https://github.com/zainalhassan/design-system).
+Hourline uses the shared **Transit theme** from [`@zainalhassan/design-system`](https://github.com/zainalhassan/design-system).
 
 - Theme tokens: `../design-system/themes/transit/tokens.json`
 - Component spec: `../design-system/specs/transit.md`

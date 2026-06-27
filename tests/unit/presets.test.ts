@@ -21,7 +21,7 @@ describe("job-title presets", () => {
     }
   });
 
-  it("includes mileage on field engineer preset", () => {
+  it("includes mileage on care support worker preset", () => {
     const fieldEngineer = JOB_TITLE_PRESETS.FIELD_ENGINEER;
     expect(fieldEngineer.fields.some((f) => f.fieldKey === "mileage")).toBe(true);
   });

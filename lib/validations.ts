@@ -87,11 +87,39 @@ export const sendTimesheetSchema = z.object({
   message: z.string().max(2000).optional(),
 });
 
+function payTimingFields() {
+  return {
+    payTimingMode: z.enum(["PAY_IN_ARREARS", "PERIOD_CLOSES_ON"]),
+    periodCloseMode: z.enum(["DAY_OF_MONTH", "DAYS_BEFORE_PAYDAY"]),
+    periodCloseDayOfMonth: z.coerce.number().min(1).max(31),
+    periodCloseDaysBeforePayday: z.coerce.number().min(0).max(90),
+  };
+}
+
+export const completeOnboardingSchema = z.object({
+  name: z.string().min(1, "Name is required").max(100),
+  preset: jobTitlePresetEnum,
+  payPeriodType: z.enum(["WEEKLY", "FORTNIGHTLY", "MONTHLY"]),
+  paydayMode: z.enum(["DAY_OF_MONTH", "LAST_WEEKDAY_OF_MONTH"]),
+  paydayOfWeek: z.coerce.number().min(0).max(6),
+  paydayOfMonth: z.coerce.number().min(1).max(31),
+  ...payTimingFields(),
+  payPeriodAnchor: z.preprocess(
+    (v) => (v === "" || v == null ? undefined : v),
+    z.string().optional(),
+  ),
+  employerName: z.string().max(100).optional(),
+  employerEmail: z.string().email("Invalid employer email").optional().or(z.literal("")),
+  ccSelfOnSubmit: z.coerce.boolean().optional(),
+  submitMessage: z.string().max(2000).optional(),
+});
+
 export const updatePayScheduleSchema = z.object({
   payPeriodType: z.enum(["WEEKLY", "FORTNIGHTLY", "MONTHLY"]),
   paydayMode: z.enum(["DAY_OF_MONTH", "LAST_WEEKDAY_OF_MONTH"]),
   paydayOfWeek: z.coerce.number().min(0).max(6),
   paydayOfMonth: z.coerce.number().min(1).max(31),
+  ...payTimingFields(),
   payPeriodAnchor: z.preprocess(
     (v) => (v === "" || v == null ? undefined : v),
     z.string().optional(),

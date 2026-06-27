@@ -109,7 +109,7 @@ export function TemplateEditor({ action, initial, submitLabel }: TemplateEditorP
           id="name"
           name="name"
           defaultValue={initial?.name}
-          placeholder="My field engineer sheet"
+          placeholder="My care support sheet"
           required
         />
       </div>

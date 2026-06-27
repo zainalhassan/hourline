@@ -83,7 +83,7 @@ describe("entry form parsing", () => {
     expect(metadata.vehicle_reg).toBe("AB12 CDE");
   });
 
-  it("requires client for field engineer template", () => {
+  it("requires client for care support worker template", () => {
     const formData = formDataFromRecord({
       entryDate: "2026-06-03",
       durationHours: "1",

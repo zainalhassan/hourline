@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getAppDisplayName } from "@/lib/env";
 import { generateTimesheetPdf } from "@/lib/pdf/generateTimesheetPdf";
-import { requirePeriod } from "@/lib/timesheet/periodQueries";
+import { loadPeriodScopedEntries } from "@/lib/timesheet/periodQueries";
 import { getUserActiveTemplate } from "@/lib/timesheet/templates";
 import { getMileageFromEntry, normalizeFieldConfig } from "@/lib/timesheet/fieldConfig";
 
@@ -18,7 +18,10 @@ export async function GET(_request: Request, context: RouteContext) {
   }
 
   const { periodId } = await context.params;
-  const period = await requirePeriod(periodId, session.user.id);
+  const { period, entries } = await loadPeriodScopedEntries(
+    periodId,
+    session.user.id,
+  );
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: session.user.id },
   });
@@ -35,7 +38,7 @@ export async function GET(_request: Request, context: RouteContext) {
     periodEnd: period.endDate,
     templateName: activeTemplate.name,
     fieldConfig,
-    entries: period.entries.map((e) => ({
+    entries: entries.map((e) => ({
       entryDate: e.entryDate,
       durationMinutes: e.durationMinutes,
       mileage: getMileageFromEntry(e),

@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Send } from "lucide-react";
 import type { TimeEntry } from "@prisma/client";
+import type { PeriodStatus } from "@prisma/client";
 import type { ResolvedField } from "@/lib/timesheet/fieldConfig";
 import type { StoredDurationPresets } from "@/lib/timesheet/durationPresets";
 import { EntryForm } from "@/components/timesheet/EntryForm";
+import { SubmitPreviewSheet } from "@/components/timesheet/SubmitPreviewSheet";
 import {
   Dialog,
   DialogContent,
@@ -26,7 +28,55 @@ type QuickAddSheetProps = {
     max: string;
     default: string;
   };
+  submission?: {
+    periodId: string;
+    status: PeriodStatus;
+    scopeLabel: string;
+    hasEmployerEmail: boolean;
+    emailConfigured: boolean;
+    entryCount: number;
+    periodComplete: boolean;
+    periodEnd?: Date;
+  };
 };
+
+function QuickLogDialog({
+  periodId,
+  fields,
+  lastEntry,
+  durationPresets,
+  dateRange,
+  trigger,
+}: {
+  periodId: string;
+  fields: ResolvedField[];
+  lastEntry: TimeEntry | null;
+  durationPresets: StoredDurationPresets;
+  dateRange: QuickAddSheetProps["dateRange"];
+  trigger: React.ReactElement;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger render={trigger} />
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Log time</DialogTitle>
+        </DialogHeader>
+        <EntryForm
+          periodId={periodId}
+          fields={fields}
+          lastEntry={lastEntry}
+          compact
+          durationPresets={durationPresets}
+          dateRange={dateRange}
+          onSuccess={() => setOpen(false)}
+        />
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export function QuickAddSheet({
   periodId,
@@ -35,61 +85,88 @@ export function QuickAddSheet({
   canEdit,
   durationPresets,
   dateRange,
+  submission,
 }: QuickAddSheetProps) {
-  const [open, setOpen] = useState(false);
+  const showMobileBar = canEdit || submission;
+  const showLogButton = canEdit;
 
-  if (!canEdit) return null;
+  if (!showMobileBar) return null;
 
   return (
     <>
-      <div className="fixed bottom-[calc(var(--component-bottom-nav-height)+var(--layout-safe-area-bottom)+1rem)] left-4 right-4 z-20 lg:hidden">
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger
-            render={
-              <Button size="lg" className="w-full shadow-lg">
+      <div className="fixed bottom-[calc(var(--component-bottom-nav-height)+var(--layout-safe-area-bottom)+1rem)] left-4 right-4 z-20 flex gap-2 lg:hidden">
+        {showLogButton ? (
+          <QuickLogDialog
+            periodId={periodId}
+            fields={fields}
+            lastEntry={lastEntry}
+            durationPresets={durationPresets}
+            dateRange={dateRange}
+            trigger={
+              <Button size="lg" className="min-w-0 flex-1 shadow-lg">
                 <Plus className="size-5" />
                 Log time
               </Button>
             }
           />
-          <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Log time</DialogTitle>
-            </DialogHeader>
-            <EntryForm
-              periodId={periodId}
-              fields={fields}
-              lastEntry={lastEntry}
-              compact
-              durationPresets={durationPresets}
-              dateRange={dateRange}
-              onSuccess={() => setOpen(false)}
-            />
-          </DialogContent>
-        </Dialog>
+        ) : null}
+        {submission ? (
+          <SubmitPreviewSheet
+            periodId={submission.periodId}
+            status={submission.status}
+            scopeLabel={submission.scopeLabel}
+            hasEmployerEmail={submission.hasEmployerEmail}
+            emailConfigured={submission.emailConfigured}
+            entryCount={submission.entryCount}
+            periodComplete={submission.periodComplete}
+            periodEnd={submission.periodEnd}
+            trigger={
+              <Button
+                size="lg"
+                variant="outline"
+                className="min-w-0 flex-1 bg-background shadow-lg"
+                disabled={submission.entryCount === 0}
+              >
+                <Send className="size-5" />
+                Submit
+              </Button>
+            }
+          />
+        ) : null}
       </div>
 
-      <div className="hidden lg:block">
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger
-            render={<Button size="sm">Quick log</Button>}
-          />
-          <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Log time</DialogTitle>
-            </DialogHeader>
-            <EntryForm
+      {canEdit || submission ? (
+        <div className="hidden lg:flex lg:justify-end lg:gap-2">
+          {canEdit ? (
+            <QuickLogDialog
               periodId={periodId}
               fields={fields}
               lastEntry={lastEntry}
-              compact
               durationPresets={durationPresets}
               dateRange={dateRange}
-              onSuccess={() => setOpen(false)}
+              trigger={<Button size="sm">Quick log</Button>}
             />
-          </DialogContent>
-        </Dialog>
-      </div>
+          ) : null}
+          {submission ? (
+            <SubmitPreviewSheet
+              periodId={submission.periodId}
+              status={submission.status}
+              scopeLabel={submission.scopeLabel}
+              hasEmployerEmail={submission.hasEmployerEmail}
+              emailConfigured={submission.emailConfigured}
+              entryCount={submission.entryCount}
+              periodComplete={submission.periodComplete}
+              periodEnd={submission.periodEnd}
+              trigger={
+                <Button size="sm" disabled={submission.entryCount === 0}>
+                  <Send className="size-4" />
+                  Submit
+                </Button>
+              }
+            />
+          ) : null}
+        </div>
+      ) : null}
     </>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { toast } from "sonner";
-import type { PaydayMode, PayPeriodType } from "@prisma/client";
+import type { PaydayMode, PayPeriodType, PayTimingMode, PeriodCloseMode } from "@prisma/client";
 import {
   updatePaySchedule,
   type SettingsActionState,
@@ -11,6 +11,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toDateInputValue } from "@/lib/timesheet/periods";
+import { normalizePaySchedule } from "@/lib/timesheet/payPeriod";
+import {
+  MONTHLY_PAYDAY_OPTIONS,
+  PAY_SCHEDULE_WEEKDAYS,
+  monthlyPaydayValue,
+  parseMonthlyPayday,
+} from "@/lib/timesheet/payScheduleOptions";
+import {
+  PayTimingFields,
+  defaultPayTimingForType,
+} from "@/components/settings/PayTimingFields";
 
 type PayScheduleFormProps = {
   payPeriodType: PayPeriodType;
@@ -18,67 +29,11 @@ type PayScheduleFormProps = {
   paydayOfWeek: number;
   paydayOfMonth: number;
   payPeriodAnchor: Date | null;
+  payTimingMode: PayTimingMode;
+  periodCloseMode: PeriodCloseMode;
+  periodCloseDayOfMonth: number;
+  periodCloseDaysBeforePayday: number;
 };
-
-const WEEKDAYS = [
-  { value: 1, label: "Monday" },
-  { value: 2, label: "Tuesday" },
-  { value: 3, label: "Wednesday" },
-  { value: 4, label: "Thursday" },
-  { value: 5, label: "Friday" },
-  { value: 6, label: "Saturday" },
-  { value: 0, label: "Sunday" },
-];
-
-function ordinal(day: number): string {
-  if (day >= 11 && day <= 13) return `${day}th`;
-  const last = day % 10;
-  if (last === 1) return `${day}st`;
-  if (last === 2) return `${day}nd`;
-  if (last === 3) return `${day}rd`;
-  return `${day}th`;
-}
-
-const MONTHLY_PAYDAY_OPTIONS = [
-  ...Array.from({ length: 31 }, (_, i) => {
-    const day = i + 1;
-    const suffix = day > 28 ? " (or last day in shorter months)" : "";
-    return {
-      value: `day:${day}`,
-      label: `${ordinal(day)} of the month${suffix}`,
-    };
-  }),
-  ...WEEKDAYS.map((day) => ({
-    value: `last:${day.value}`,
-    label: `Last ${day.label} of the month`,
-  })),
-];
-
-function monthlyPaydayValue(mode: PaydayMode, dayOfMonth: number, dayOfWeek: number) {
-  if (mode === "LAST_WEEKDAY_OF_MONTH") {
-    return `last:${dayOfWeek}`;
-  }
-  return `day:${dayOfMonth}`;
-}
-
-function parseMonthlyPayday(value: string): {
-  paydayMode: PaydayMode;
-  paydayOfMonth: number;
-  paydayOfWeek: number;
-} {
-  if (value.startsWith("last:")) {
-    return {
-      paydayMode: "LAST_WEEKDAY_OF_MONTH",
-      paydayOfMonth: 28,
-      paydayOfWeek: Number(value.slice(5)),
-    };
-  }
-  return {
-    paydayMode: "DAY_OF_MONTH",
-    paydayOfMonth: Number(value.slice(4)),
-    paydayOfWeek: 5,
-  };
-}
 
 const initialState: SettingsActionState = {};
 
@@ -88,13 +43,33 @@ export function PayScheduleForm({
   paydayOfWeek,
   paydayOfMonth,
   payPeriodAnchor,
+  payTimingMode: initialPayTimingMode,
+  periodCloseMode: initialPeriodCloseMode,
+  periodCloseDayOfMonth: initialPeriodCloseDayOfMonth,
+  periodCloseDaysBeforePayday: initialPeriodCloseDaysBeforePayday,
 }: PayScheduleFormProps) {
   const [state, formAction, pending] = useActionState(updatePaySchedule, initialState);
   const [payPeriodType, setPayPeriodType] = useState<PayPeriodType>(initialType);
+  const [payTiming, setPayTiming] = useState(() =>
+    defaultPayTimingForType(initialType, {
+      payTimingMode: initialPayTimingMode,
+      periodCloseMode: initialPeriodCloseMode,
+      periodCloseDayOfMonth: initialPeriodCloseDayOfMonth,
+      periodCloseDaysBeforePayday: initialPeriodCloseDaysBeforePayday,
+    }),
+  );
   const [monthlyPayday, setMonthlyPayday] = useState(
     monthlyPaydayValue(initialPaydayMode, paydayOfMonth, paydayOfWeek),
   );
   const parsedMonthly = parseMonthlyPayday(monthlyPayday);
+  const schedulePreview = normalizePaySchedule({
+    payPeriodType,
+    paydayMode: payPeriodType === "MONTHLY" ? parsedMonthly.paydayMode : "DAY_OF_MONTH",
+    paydayOfWeek: payPeriodType === "MONTHLY" ? parsedMonthly.paydayOfWeek : paydayOfWeek,
+    paydayOfMonth: parsedMonthly.paydayOfMonth,
+    payPeriodAnchor,
+    ...payTiming,
+  });
 
   useEffect(() => {
     if (state.success) toast.success("Pay schedule saved");
@@ -108,7 +83,13 @@ export function PayScheduleForm({
           id="payPeriodType"
           name="payPeriodType"
           value={payPeriodType}
-          onChange={(e) => setPayPeriodType(e.target.value as PayPeriodType)}
+          onChange={(e) => {
+            const next = e.target.value as PayPeriodType;
+            setPayPeriodType(next);
+            setPayTiming(
+              defaultPayTimingForType(next, next === initialType ? payTiming : undefined),
+            );
+          }}
           className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
         >
           <option value="WEEKLY">Weekly (Mon–Sun)</option>
@@ -129,7 +110,7 @@ export function PayScheduleForm({
             defaultValue={paydayOfWeek}
             className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
           >
-            {WEEKDAYS.map((day) => (
+            {PAY_SCHEDULE_WEEKDAYS.map((day) => (
               <option key={day.value} value={day.value}>
                 {day.label}
               </option>
@@ -175,6 +156,26 @@ export function PayScheduleForm({
           </p>
         </div>
       ) : null}
+
+      <PayTimingFields
+        payPeriodType={payPeriodType}
+        paydayMode={schedulePreview.paydayMode}
+        paydayOfWeek={schedulePreview.paydayOfWeek}
+        paydayOfMonth={schedulePreview.paydayOfMonth}
+        payPeriodAnchor={payPeriodAnchor}
+        payTimingMode={payTiming.payTimingMode}
+        periodCloseMode={payTiming.periodCloseMode}
+        periodCloseDayOfMonth={payTiming.periodCloseDayOfMonth}
+        periodCloseDaysBeforePayday={payTiming.periodCloseDaysBeforePayday}
+        onPayTimingModeChange={(mode) => setPayTiming((t) => ({ ...t, payTimingMode: mode }))}
+        onPeriodCloseModeChange={(mode) => setPayTiming((t) => ({ ...t, periodCloseMode: mode }))}
+        onPeriodCloseDayOfMonthChange={(day) =>
+          setPayTiming((t) => ({ ...t, periodCloseDayOfMonth: day }))
+        }
+        onPeriodCloseDaysBeforePaydayChange={(days) =>
+          setPayTiming((t) => ({ ...t, periodCloseDaysBeforePayday: days }))
+        }
+      />
 
       {payPeriodType !== "WEEKLY" && payPeriodType !== "MONTHLY" ? (
         <input type="hidden" name="paydayOfWeek" value={paydayOfWeek} />

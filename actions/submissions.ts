@@ -7,7 +7,8 @@ import { prisma } from "@/lib/prisma";
 import { getAppDisplayName, isEmailConfigured } from "@/lib/env";
 import { sendTimesheetEmail } from "@/lib/email/sendTimesheet";
 import { generateTimesheetPdf } from "@/lib/pdf/generateTimesheetPdf";
-import { requirePeriod } from "@/lib/timesheet/periodQueries";
+import { loadPeriodScopedEntries, markPeriodReady } from "@/lib/timesheet/periodQueries";
+import { isSubmissionPeriodComplete } from "@/lib/timesheet/submissionScope";
 import { getUserActiveTemplate } from "@/lib/timesheet/templates";
 import { getMileageFromEntry, normalizeFieldConfig } from "@/lib/timesheet/fieldConfig";
 import { sendTimesheetSchema } from "@/lib/validations";
@@ -41,14 +42,25 @@ export async function sendTimesheetToEmployer(
     return { error: "Add an employer email in Settings before sending" };
   }
 
-  const period = await requirePeriod(parsed.data.periodId, session.user.id);
+  const { period, entries } = await loadPeriodScopedEntries(
+    parsed.data.periodId,
+    session.user.id,
+  );
 
   if (period.status === PeriodStatus.DRAFT) {
-    return { error: "Mark this timesheet as ready before sending" };
+    const readyResult = await markPeriodReady(period.id, session.user.id);
+    if (readyResult.error) return { error: readyResult.error };
   }
 
-  if (period.entries.length === 0) {
+  if (entries.length === 0) {
     return { error: "No entries to send" };
+  }
+
+  if (!isSubmissionPeriodComplete(period.endDate)) {
+    return {
+      error:
+        "This work period has not ended yet. Wait until it closes before sending.",
+    };
   }
 
   const activeTemplate = await getUserActiveTemplate(session.user.id);
@@ -63,7 +75,7 @@ export async function sendTimesheetToEmployer(
     periodEnd: period.endDate,
     templateName: activeTemplate.name,
     fieldConfig,
-    entries: period.entries.map((e) => ({
+    entries: entries.map((e) => ({
       entryDate: e.entryDate,
       durationMinutes: e.durationMinutes,
       mileage: getMileageFromEntry(e),

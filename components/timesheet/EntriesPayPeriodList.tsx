@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import type { TimeEntry } from "@prisma/client";
 import { formatDuration, startOfWeek, toDateInputValue } from "@/lib/timesheet/periods";
 import { EntriesDayList } from "@/components/timesheet/EntriesDayList";
@@ -63,19 +62,11 @@ export function EntriesPayPeriodList({
     <div className="space-y-6">
       {weeks.map((week) => (
         <section key={week.weekStart} className="space-y-3">
-          <div className="flex items-center justify-between gap-3 rounded-lg bg-muted/50 px-3 py-2">
-            <div>
-              <p className="text-sm font-semibold">Week {week.label}</p>
-              <p className="text-xs text-muted-foreground">
-                {formatDuration(week.totalMinutes)} logged
-              </p>
-            </div>
-            <Link
-              href={`/?week=${week.weekStart}&view=week`}
-              className="text-xs font-medium text-primary hover:underline"
-            >
-              Open week
-            </Link>
+          <div className="rounded-lg bg-muted/50 px-3 py-2">
+            <p className="text-sm font-semibold">Week {week.label}</p>
+            <p className="text-xs text-muted-foreground">
+              {formatDuration(week.totalMinutes)} logged
+            </p>
           </div>
           <EntriesDayList
             entries={week.entries}

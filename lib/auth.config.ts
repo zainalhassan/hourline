@@ -14,8 +14,14 @@ export const authConfig = {
         nextUrl.pathname.startsWith("/login") ||
         nextUrl.pathname.startsWith("/register");
 
+      const isOnboardingPage = nextUrl.pathname.startsWith("/onboarding");
+
       if (isLoggedIn && isAuthPage) {
         return Response.redirect(new URL("/", nextUrl));
+      }
+
+      if (isLoggedIn && isOnboardingPage) {
+        return true;
       }
 
       if (!isLoggedIn && !isAuthPage) {

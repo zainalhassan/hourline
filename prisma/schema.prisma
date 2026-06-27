@@ -30,6 +30,16 @@ enum PaydayMode {
   LAST_WEEKDAY_OF_MONTH
 }
 
+enum PayTimingMode {
+  PAY_IN_ARREARS
+  PERIOD_CLOSES_ON
+}
+
+enum PeriodCloseMode {
+  DAY_OF_MONTH
+  DAYS_BEFORE_PAYDAY
+}
+
 model User {
   id       String  @id @default(cuid())
   name     String?
@@ -49,6 +59,12 @@ model User {
   paydayOfWeek    Int           @default(5)
   paydayOfMonth   Int           @default(28)
   payPeriodAnchor DateTime?     @db.Date
+  payTimingMode   PayTimingMode @default(PAY_IN_ARREARS)
+  periodCloseMode PeriodCloseMode @default(DAY_OF_MONTH)
+  periodCloseDayOfMonth Int @default(31)
+  periodCloseDaysBeforePayday Int @default(0)
+
+  onboardingCompletedAt DateTime?
 
   activePreset         JobTitlePreset @default(FIELD_ENGINEER)
   activeUserTemplateId String?

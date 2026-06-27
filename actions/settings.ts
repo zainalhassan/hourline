@@ -11,6 +11,7 @@ import {
   updateSubmissionSettingsSchema,
 } from "@/lib/validations";
 import { parseDateInput } from "@/lib/timesheet/periods";
+import { resolvePayTimingPersistence } from "@/lib/timesheet/payTiming";
 
 export type SettingsActionState = {
   error?: string;
@@ -87,11 +88,22 @@ export async function updatePaySchedule(
     paydayOfWeek: formData.get("paydayOfWeek"),
     paydayOfMonth: formData.get("paydayOfMonth"),
     payPeriodAnchor: formData.get("payPeriodAnchor"),
+    payTimingMode: formData.get("payTimingMode"),
+    periodCloseMode: formData.get("periodCloseMode"),
+    periodCloseDayOfMonth: formData.get("periodCloseDayOfMonth"),
+    periodCloseDaysBeforePayday: formData.get("periodCloseDaysBeforePayday"),
   });
 
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
+
+  const payTiming = resolvePayTimingPersistence(parsed.data.payPeriodType, {
+    payTimingMode: parsed.data.payTimingMode,
+    periodCloseMode: parsed.data.periodCloseMode,
+    periodCloseDayOfMonth: parsed.data.periodCloseDayOfMonth,
+    periodCloseDaysBeforePayday: parsed.data.periodCloseDaysBeforePayday,
+  });
 
   await prisma.user.update({
     where: { id: session.user.id },
@@ -103,6 +115,7 @@ export async function updatePaySchedule(
       payPeriodAnchor: parsed.data.payPeriodAnchor
         ? parseDateInput(parsed.data.payPeriodAnchor)
         : null,
+      ...payTiming,
     },
   });
 

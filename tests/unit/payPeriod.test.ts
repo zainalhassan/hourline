@@ -15,6 +15,10 @@ describe("pay period", () => {
     paydayOfWeek: 5,
     paydayOfMonth: 28,
     payPeriodAnchor: null,
+    payTimingMode: "PAY_IN_ARREARS",
+    periodCloseMode: "DAY_OF_MONTH",
+    periodCloseDayOfMonth: 31,
+    periodCloseDaysBeforePayday: 0,
   });
 
   it("calculates weekly bounds", () => {
@@ -31,8 +35,12 @@ describe("pay period", () => {
       paydayMode: "DAY_OF_MONTH",
       paydayOfWeek: 5,
       paydayOfMonth: 28,
-      payPeriodAnchor: null,
-    });
+    payPeriodAnchor: null,
+    payTimingMode: "PAY_IN_ARREARS",
+    periodCloseMode: "DAY_OF_MONTH",
+    periodCloseDayOfMonth: 31,
+    periodCloseDaysBeforePayday: 0,
+  });
     const date = new Date(2026, 5, 15);
     const { start, end } = getPayPeriodContaining(date, monthly);
     expect(start.getDate()).toBe(1);
@@ -46,8 +54,12 @@ describe("pay period", () => {
       paydayMode: "DAY_OF_MONTH",
       paydayOfWeek: 5,
       paydayOfMonth: 28,
-      payPeriodAnchor: null,
-    });
+    payPeriodAnchor: null,
+    payTimingMode: "PAY_IN_ARREARS",
+    periodCloseMode: "DAY_OF_MONTH",
+    periodCloseDayOfMonth: 31,
+    periodCloseDaysBeforePayday: 0,
+  });
     expect(parseViewParam(undefined, monthly)).toBe("pay");
     expect(parseViewParam(undefined, { ...monthly, payPeriodType: "WEEKLY" })).toBe(
       "week",
@@ -60,8 +72,12 @@ describe("pay period", () => {
       paydayMode: "DAY_OF_MONTH",
       paydayOfWeek: 5,
       paydayOfMonth: 31,
-      payPeriodAnchor: null,
-    });
+    payPeriodAnchor: null,
+    payTimingMode: "PAY_IN_ARREARS",
+    periodCloseMode: "DAY_OF_MONTH",
+    periodCloseDayOfMonth: 31,
+    periodCloseDaysBeforePayday: 0,
+  });
     expect(getPaydayDescription(schedule)).toBe(
       "Paid on the 31st of each month (or the last day in shorter months)",
     );
@@ -73,8 +89,12 @@ describe("pay period", () => {
       paydayMode: "LAST_WEEKDAY_OF_MONTH",
       paydayOfWeek: 5,
       paydayOfMonth: 28,
-      payPeriodAnchor: null,
-    });
+    payPeriodAnchor: null,
+    payTimingMode: "PAY_IN_ARREARS",
+    periodCloseMode: "DAY_OF_MONTH",
+    periodCloseDayOfMonth: 31,
+    periodCloseDaysBeforePayday: 0,
+  });
     expect(getPaydayDescription(schedule)).toBe(
       "Paid on the last Friday of each month",
     );

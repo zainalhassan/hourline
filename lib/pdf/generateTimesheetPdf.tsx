@@ -9,12 +9,12 @@ import {
 import { getAppDisplayName } from "@/lib/env";
 import {
   getFieldLabel,
-  getMileageFromEntry,
   getTableColumns,
   normalizeFieldConfig,
   type StoredFieldConfig,
 } from "@/lib/timesheet/fieldConfig";
 import { formatDuration } from "@/lib/timesheet/periods";
+import { getPdfSummaryMetrics } from "@/lib/timesheet/pdfSummary";
 
 const styles = StyleSheet.create({
   page: {
@@ -26,6 +26,31 @@ const styles = StyleSheet.create({
   header: { marginBottom: 20 },
   title: { fontSize: 20, fontWeight: "bold", marginBottom: 4 },
   subtitle: { fontSize: 11, color: "#555", marginBottom: 2 },
+  summaryRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  summaryCard: {
+    flex: 1,
+    backgroundColor: "#ecfdf3",
+    borderWidth: 1,
+    borderColor: "#1BD974",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  summaryLabel: {
+    fontSize: 8,
+    color: "#166534",
+    marginBottom: 4,
+    textTransform: "uppercase",
+  },
+  summaryValue: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#111",
+  },
   table: { marginTop: 12 },
   tableHeader: {
     flexDirection: "row",
@@ -50,12 +75,6 @@ const styles = StyleSheet.create({
   colDate: { width: "14%" },
   colDuration: { width: "12%" },
   colDynamic: { flex: 1 },
-  totals: {
-    marginTop: 16,
-    paddingTop: 8,
-    borderTopWidth: 2,
-    borderTopColor: "#1BD974",
-  },
   footer: {
     position: "absolute",
     bottom: 24,
@@ -116,11 +135,7 @@ function TimesheetDocument({
   generatedAt: string;
 }) {
   const columns = getTableColumns(normalizeFieldConfig(input.fieldConfig));
-  const totalMinutes = input.entries.reduce((sum, e) => sum + e.durationMinutes, 0);
-  const totalMileage = input.entries.reduce(
-    (sum, e) => sum + (e.mileage ?? 0),
-    0,
-  );
+  const summaryMetrics = getPdfSummaryMetrics(input.entries, input.fieldConfig);
   const appName = getAppDisplayName();
 
   return (
@@ -134,6 +149,15 @@ function TimesheetDocument({
             Period: {formatDate(input.periodStart)} – {formatDate(input.periodEnd)}
           </Text>
           <Text style={styles.subtitle}>Template: {input.templateName}</Text>
+        </View>
+
+        <View style={styles.summaryRow}>
+          {summaryMetrics.map((metric) => (
+            <View key={metric.label} style={styles.summaryCard}>
+              <Text style={styles.summaryLabel}>{metric.label}</Text>
+              <Text style={styles.summaryValue}>{metric.value}</Text>
+            </View>
+          ))}
         </View>
 
         <View style={styles.table}>
@@ -163,13 +187,6 @@ function TimesheetDocument({
               ))}
             </View>
           ))}
-        </View>
-
-        <View style={styles.totals}>
-          <Text>Total hours: {formatDuration(totalMinutes)}</Text>
-          {totalMileage > 0 && (
-            <Text>Total mileage: {totalMileage.toFixed(1)} miles</Text>
-          )}
         </View>
 
         <Text style={styles.footer} fixed>

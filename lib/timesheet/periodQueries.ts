@@ -9,11 +9,10 @@ import {
   startOfWeek,
 } from "@/lib/timesheet/periods";
 import { isDateInRange } from "@/lib/timesheet/payPeriod";
+import type { PaySchedule } from "@/lib/timesheet/payPeriod";
+import { getSubmissionDateRange } from "@/lib/timesheet/submissionScope";
 
-export async function getOrCreatePeriod(userId: string, weekStart?: Date) {
-  const start = weekStart ? startOfWeek(weekStart) : startOfWeek(new Date());
-  const end = endOfWeek(start);
-
+async function findOrCreatePeriodRecord(userId: string, start: Date, end: Date) {
   const existing = await prisma.timesheetPeriod.findUnique({
     where: {
       userId_startDate: { userId, startDate: start },
@@ -44,6 +43,31 @@ export async function getOrCreatePeriod(userId: string, weekStart?: Date) {
   });
 }
 
+export async function getOrCreatePeriod(userId: string, weekStart?: Date) {
+  const start = weekStart ? startOfWeek(weekStart) : startOfWeek(new Date());
+  const end = endOfWeek(start);
+  return findOrCreatePeriodRecord(userId, start, end);
+}
+
+export async function getOrCreateSubmissionPeriod(
+  userId: string,
+  schedule: PaySchedule,
+  anchor: Date = new Date(),
+) {
+  const { start, end } = getSubmissionDateRange(anchor, schedule);
+  return findOrCreatePeriodRecord(userId, start, end);
+}
+
+export async function loadPeriodScopedEntries(periodId: string, userId: string) {
+  const period = await requirePeriod(periodId, userId);
+  const entries = await getEntriesForDateRange(
+    userId,
+    period.startDate,
+    period.endDate,
+  );
+  return { period, entries };
+}
+
 export async function requirePeriod(periodId: string, userId: string) {
   const period = await prisma.timesheetPeriod.findFirst({
     where: { id: periodId, userId },
@@ -57,12 +81,12 @@ export async function requirePeriod(periodId: string, userId: string) {
 }
 
 export async function markPeriodReady(periodId: string, userId: string) {
-  const period = await requirePeriod(periodId, userId);
+  const { period, entries } = await loadPeriodScopedEntries(periodId, userId);
   const template = await getUserActiveTemplate(userId);
   const fieldConfig =
     period.fieldConfigSnapshot ?? template.fieldConfig;
 
-  const validationError = validatePeriodEntries(period.entries, fieldConfig);
+  const validationError = validatePeriodEntries(entries, fieldConfig);
   if (validationError) {
     return { error: validationError };
   }

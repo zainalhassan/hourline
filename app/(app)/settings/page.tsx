@@ -71,6 +71,10 @@ export default async function SettingsPage() {
           paydayOfWeek={user.paydayOfWeek}
           paydayOfMonth={user.paydayOfMonth}
           payPeriodAnchor={user.payPeriodAnchor}
+          payTimingMode={user.payTimingMode}
+          periodCloseMode={user.periodCloseMode}
+          periodCloseDayOfMonth={user.periodCloseDayOfMonth}
+          periodCloseDaysBeforePayday={user.periodCloseDaysBeforePayday}
         />
       </SectionCard>
 

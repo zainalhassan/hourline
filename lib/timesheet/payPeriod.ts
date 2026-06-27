@@ -1,4 +1,5 @@
-import type { PaydayMode, PayPeriodType, User } from "@prisma/client";
+import type { PaydayMode, PayPeriodType, PayTimingMode, PeriodCloseMode, User } from "@prisma/client";
+import { getDefaultSubmissionAnchor, getSubmissionTimingDescription } from "@/lib/timesheet/payTiming";
 import {
   addWeeks,
   endOfWeek,
@@ -13,6 +14,10 @@ export type PaySchedule = {
   paydayOfWeek: number;
   paydayOfMonth: number;
   payPeriodAnchor: Date | null;
+  payTimingMode: PayTimingMode;
+  periodCloseMode: PeriodCloseMode;
+  periodCloseDayOfMonth: number;
+  periodCloseDaysBeforePayday: number;
 };
 
 const WEEKDAY_NAMES = [
@@ -28,7 +33,15 @@ const WEEKDAY_NAMES = [
 export function normalizePaySchedule(
   user: Pick<
     User,
-    "payPeriodType" | "paydayMode" | "paydayOfWeek" | "paydayOfMonth" | "payPeriodAnchor"
+    | "payPeriodType"
+    | "paydayMode"
+    | "paydayOfWeek"
+    | "paydayOfMonth"
+    | "payPeriodAnchor"
+    | "payTimingMode"
+    | "periodCloseMode"
+    | "periodCloseDayOfMonth"
+    | "periodCloseDaysBeforePayday"
   >,
 ): PaySchedule {
   return {
@@ -37,6 +50,13 @@ export function normalizePaySchedule(
     paydayOfWeek: clamp(user.paydayOfWeek ?? 5, 0, 6),
     paydayOfMonth: clamp(user.paydayOfMonth ?? 28, 1, 31),
     payPeriodAnchor: user.payPeriodAnchor ? new Date(user.payPeriodAnchor) : null,
+    payTimingMode:
+      user.payPeriodType === "WEEKLY"
+        ? "PAY_IN_ARREARS"
+        : (user.payTimingMode ?? "PAY_IN_ARREARS"),
+    periodCloseMode: user.periodCloseMode ?? "DAY_OF_MONTH",
+    periodCloseDayOfMonth: clamp(user.periodCloseDayOfMonth ?? 31, 1, 31),
+    periodCloseDaysBeforePayday: clamp(user.periodCloseDaysBeforePayday ?? 0, 0, 90),
   };
 }
 
@@ -209,6 +229,12 @@ export function parseViewParam(
 export function usesExtendedPayPeriod(schedule: PaySchedule): boolean {
   return schedule.payPeriodType !== "WEEKLY";
 }
+
+export function getDefaultPayViewAnchor(today: Date, schedule: PaySchedule): Date {
+  return getDefaultSubmissionAnchor(today, schedule);
+}
+
+export { getSubmissionTimingDescription };
 
 export function parsePayPeriodParam(value?: string): Date {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return new Date();

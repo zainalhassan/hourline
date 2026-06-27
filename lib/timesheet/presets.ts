@@ -26,8 +26,8 @@ function field(
 export const JOB_TITLE_PRESETS: Record<JobTitlePreset, PresetDefinition> = {
   FIELD_ENGINEER: {
     preset: "FIELD_ENGINEER",
-    label: "Field Engineer",
-    description: "Site visits, client time, and mileage.",
+    label: "Care Support Worker",
+    description: "Home visits, client support, and travel.",
     headerColor: "var(--color-route-blue)",
     fields: [
       field("durationMinutes", 0, { required: true }),

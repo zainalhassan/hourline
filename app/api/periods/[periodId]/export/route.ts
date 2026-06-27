@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { requirePeriod } from "@/lib/timesheet/periodQueries";
+import { loadPeriodScopedEntries } from "@/lib/timesheet/periodQueries";
 import { buildTimesheetCsv } from "@/lib/timesheet/exportCsv";
 
 type RouteContext = {
@@ -14,9 +14,12 @@ export async function GET(_request: Request, context: RouteContext) {
   }
 
   const { periodId } = await context.params;
-  const period = await requirePeriod(periodId, session.user.id);
+  const { period, entries } = await loadPeriodScopedEntries(
+    periodId,
+    session.user.id,
+  );
 
-  const csv = buildTimesheetCsv(period.fieldConfigSnapshot, period.entries);
+  const csv = buildTimesheetCsv(period.fieldConfigSnapshot, entries);
   const label = `${period.startDate.toISOString().slice(0, 10)}_timesheet.csv`;
 
   return new NextResponse(csv, {

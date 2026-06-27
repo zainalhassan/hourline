@@ -8,6 +8,7 @@ import {
   getAdjacentWeeks,
   getEntriesForDateRange,
   getOrCreatePeriod,
+  getOrCreateSubmissionPeriod,
   parseWeekParam,
 } from "@/lib/timesheet/periodQueries";
 import { getUserActiveTemplate } from "@/lib/timesheet/templates";
@@ -19,12 +20,21 @@ import {
   getPayPeriodContaining,
   getPaydayDescription,
   getPayPeriodTypeLabel,
+  getDefaultPayViewAnchor,
+  getSubmissionTimingDescription,
   normalizePaySchedule,
   parsePayPeriodParam,
   parseViewParam,
   shiftPayPeriod,
-  usesExtendedPayPeriod,
 } from "@/lib/timesheet/payPeriod";
+import {
+  getSubmissionScopeLabel,
+  getSubmissionDateRange,
+  getLoggingPeriodContaining,
+  isSubmissionPeriodComplete,
+  shiftSubmissionPeriod,
+  usesWeeklySubmission,
+} from "@/lib/timesheet/submissionScope";
 import {
   formatDuration,
   formatWeekLabel,
@@ -35,7 +45,6 @@ import { EntriesTable } from "@/components/timesheet/EntriesTable";
 import { EntryForm } from "@/components/timesheet/EntryForm";
 import { QuickAddSheet } from "@/components/timesheet/QuickAddSheet";
 import { PeriodNavigator } from "@/components/timesheet/PeriodNavigator";
-import { SubmissionPanel } from "@/components/timesheet/SubmissionPanel";
 import { TimesheetViewTabs } from "@/components/timesheet/TimesheetViewTabs";
 import { TodayHero } from "@/components/timesheet/TodayHero";
 import { SectionCard } from "@/components/transit/SectionCard";
@@ -57,7 +66,6 @@ export default async function HomePage({ searchParams }: HomeProps) {
   const view = parseViewParam(params.view, schedule);
   const activeTemplate = await getUserActiveTemplate(session.user.id);
   const durationPresets = normalizeDurationPresets(user.durationPresets);
-  const extendedPayPeriod = usesExtendedPayPeriod(schedule);
 
   const today = new Date();
   const todayLabel = today.toLocaleDateString("en-GB", {
@@ -67,28 +75,42 @@ export default async function HomePage({ searchParams }: HomeProps) {
   });
 
   if (view === "pay") {
-    const payAnchor = parsePayPeriodParam(params.pay);
-    const payPeriod = getPayPeriodContaining(payAnchor, schedule);
+    const payAnchor = params.pay
+      ? parsePayPeriodParam(params.pay)
+      : getDefaultPayViewAnchor(today, schedule);
+    const payPeriod = getSubmissionDateRange(payAnchor, schedule);
+    const loggingPeriod = getLoggingPeriodContaining(today, schedule);
     const payStartKey = toDateInputValue(payPeriod.start);
-    const prevPayStart = shiftPayPeriod(payPeriod.start, schedule, -1);
-    const nextPayStart = shiftPayPeriod(payPeriod.start, schedule, 1);
+    const prevPayStart = shiftSubmissionPeriod(payPeriod.start, schedule, -1);
+    const nextPayStart = shiftSubmissionPeriod(payPeriod.start, schedule, 1);
 
     const payEntries = await getEntriesForDateRange(
       session.user.id,
       payPeriod.start,
       payPeriod.end,
     );
+    const submissionPeriod = await getOrCreateSubmissionPeriod(
+      session.user.id,
+      schedule,
+      payPeriod.start,
+    );
+    const submissionComplete = isSubmissionPeriodComplete(submissionPeriod.endDate, today);
+    const submissionTimingHint = getSubmissionTimingDescription(schedule);
     const totalMinutes = payEntries.reduce((s, e) => s + e.durationMinutes, 0);
     const dateRange = {
-      min: payStartKey,
-      max: toDateInputValue(payPeriod.end),
-      default: defaultEntryDateForRange(payPeriod.start, payPeriod.end, today),
+      min: toDateInputValue(loggingPeriod.start),
+      max: toDateInputValue(loggingPeriod.end),
+      default: defaultEntryDateForRange(
+        loggingPeriod.start,
+        loggingPeriod.end,
+        today,
+      ),
     };
     const logPeriod = await getOrCreatePeriod(
       session.user.id,
       parseDateInput(dateRange.default),
     );
-    const canLog = logPeriod.status !== "SENT";
+    const canLog = submissionPeriod.status !== "SENT";
     const fieldConfig: StoredFieldConfig = logPeriod.fieldConfigSnapshot
       ? normalizeFieldConfig(logPeriod.fieldConfigSnapshot)
       : activeTemplate.fieldConfig;
@@ -108,23 +130,25 @@ export default async function HomePage({ searchParams }: HomeProps) {
             payPeriod.end,
             schedule.payPeriodType,
           )}
-          scopeSubtitle={`${getPayPeriodTypeLabel(schedule.payPeriodType)} timesheet`}
+          scopeSubtitle={`${getPayPeriodTypeLabel(schedule.payPeriodType)} timesheet to submit`}
           totalMinutes={totalMinutes}
           entryCount={payEntries.length}
           templateName={template.name}
-          status="overview"
-          paydayHint={getPaydayDescription(schedule)}
+          status={submissionPeriod.status}
+          paydayHint={
+            [getPaydayDescription(schedule), submissionTimingHint]
+              .filter(Boolean)
+              .join(" · ") || undefined
+          }
         />
 
-        {extendedPayPeriod ? null : (
-          <TimesheetViewTabs
-            activeView="pay"
-            weekStart={toDateInputValue(
-              (await getOrCreatePeriod(session.user.id, today)).startDate,
-            )}
-            payStart={payStartKey}
-          />
-        )}
+        <TimesheetViewTabs
+          activeView="pay"
+          weekStart={toDateInputValue(
+            (await getOrCreatePeriod(session.user.id, today)).startDate,
+          )}
+          payStart={payStartKey}
+        />
 
         <PeriodNavigator
           label={formatPayPeriodLabel(
@@ -139,7 +163,7 @@ export default async function HomePage({ searchParams }: HomeProps) {
         />
 
         <SectionCard
-          title="Pay period"
+          title="Timesheet to submit"
           description={`${payEntries.length} entries · ${formatDuration(totalMinutes)}`}
           headerColor="var(--color-route-cyan)"
         >
@@ -158,20 +182,46 @@ export default async function HomePage({ searchParams }: HomeProps) {
           canEdit={canLog}
           durationPresets={durationPresets}
           dateRange={dateRange}
+          submission={{
+            periodId: submissionPeriod.id,
+            status: submissionPeriod.status,
+            scopeLabel: getSubmissionScopeLabel(
+              submissionPeriod.startDate,
+              submissionPeriod.endDate,
+              schedule.payPeriodType,
+            ),
+            hasEmployerEmail: Boolean(user.employerEmail),
+            emailConfigured: isEmailConfigured(),
+            entryCount: payEntries.length,
+            periodComplete: submissionComplete,
+            periodEnd: submissionPeriod.endDate,
+          }}
         />
 
-        <p className="text-center text-sm text-muted-foreground">
-          <Link href="/settings" className="font-medium text-primary hover:underline">
-            Pay schedule settings
-          </Link>{" "}
-          · Open a week to mark ready and send.
-        </p>
+        {!user.employerEmail && (
+          <p className="text-center text-sm text-muted-foreground">
+            <Link href="/settings" className="font-medium text-primary hover:underline">
+              Add your employer email
+            </Link>{" "}
+            to send timesheets when ready.
+          </p>
+        )}
       </div>
     );
   }
 
   const weekDate = parseWeekParam(params.week);
   const period = await getOrCreatePeriod(session.user.id, weekDate);
+  const submissionPeriod = await getOrCreateSubmissionPeriod(
+    session.user.id,
+    schedule,
+    weekDate,
+  );
+  const submissionEntries = await getEntriesForDateRange(
+    session.user.id,
+    submissionPeriod.startDate,
+    submissionPeriod.endDate,
+  );
   const fieldConfig: StoredFieldConfig = period.fieldConfigSnapshot
     ? normalizeFieldConfig(period.fieldConfigSnapshot)
     : activeTemplate.fieldConfig;
@@ -188,7 +238,18 @@ export default async function HomePage({ searchParams }: HomeProps) {
   );
   const totalMinutes = visibleEntries.reduce((s, e) => s + e.durationMinutes, 0);
   const { prev, next } = getAdjacentWeeks(period.startDate);
-  const canEdit = period.status !== "SENT";
+  const canEdit =
+    period.status !== "SENT" && submissionPeriod.status !== "SENT";
+  const submissionScopeLabel = getSubmissionScopeLabel(
+    submissionPeriod.startDate,
+    submissionPeriod.endDate,
+    schedule.payPeriodType,
+  );
+  const submissionComplete = isSubmissionPeriodComplete(
+    submissionPeriod.endDate,
+    today,
+  );
+  const showWeekSubmission = usesWeeklySubmission(schedule);
   const lastEntry =
     visibleEntries.length > 0
       ? visibleEntries[visibleEntries.length - 1]
@@ -209,51 +270,22 @@ export default async function HomePage({ searchParams }: HomeProps) {
         totalMinutes={totalMinutes}
         entryCount={visibleEntries.length}
         templateName={template.name}
-        status={period.status}
+        status={submissionPeriod.status}
         paydayHint={getPaydayDescription(schedule)}
       />
 
-      {extendedPayPeriod ? null : (
-        <TimesheetViewTabs
-          activeView="week"
-          weekStart={toDateInputValue(period.startDate)}
-          payStart={toDateInputValue(payPeriod.start)}
-        />
-      )}
+      <TimesheetViewTabs
+        activeView="week"
+        weekStart={toDateInputValue(period.startDate)}
+        payStart={toDateInputValue(payPeriod.start)}
+      />
 
-      {extendedPayPeriod ? (
-        <div className="space-y-2 text-center">
-          <p className="text-sm font-semibold sm:text-base">
-            {formatWeekLabel(period.startDate, period.endDate)}
-          </p>
-          <Link
-            href={`/?pay=${toDateInputValue(payPeriod.start)}&view=pay`}
-            className="text-sm font-medium text-primary hover:underline"
-          >
-            ← Back to pay period
-          </Link>
-        </div>
-      ) : (
-        <PeriodNavigator
-          label={formatWeekLabel(period.startDate, period.endDate)}
-          prevHref={`/?week=${toDateInputValue(prev)}&view=week`}
-          nextHref={`/?week=${toDateInputValue(next)}&view=week`}
-          prevLabel="Previous week"
-          nextLabel="Next week"
-        />
-      )}
-
-      <SubmissionPanel
-        periodId={period.id}
-        status={period.status}
-        hasEmployerEmail={Boolean(user.employerEmail)}
-        emailConfigured={isEmailConfigured()}
-        entryCount={visibleEntries.length}
-        submissions={period.submissions.map((s) => ({
-          id: s.id,
-          sentAt: s.sentAt,
-          recipientEmail: s.recipientEmail,
-        }))}
+      <PeriodNavigator
+        label={formatWeekLabel(period.startDate, period.endDate)}
+        prevHref={`/?week=${toDateInputValue(prev)}&view=week`}
+        nextHref={`/?week=${toDateInputValue(next)}&view=week`}
+        prevLabel="Previous week"
+        nextLabel="Next week"
       />
 
       <SectionCard
@@ -269,7 +301,7 @@ export default async function HomePage({ searchParams }: HomeProps) {
         />
       </SectionCard>
 
-      {canEdit && (
+      {canEdit ? (
         <div className="hidden lg:block">
           <SectionCard
             title="Add entry"
@@ -285,7 +317,7 @@ export default async function HomePage({ searchParams }: HomeProps) {
             />
           </SectionCard>
         </div>
-      )}
+      ) : null}
 
       <QuickAddSheet
         periodId={period.id}
@@ -294,9 +326,40 @@ export default async function HomePage({ searchParams }: HomeProps) {
         canEdit={canEdit}
         durationPresets={durationPresets}
         dateRange={dateRange}
+        submission={
+          showWeekSubmission
+            ? {
+                periodId: submissionPeriod.id,
+                status: submissionPeriod.status,
+                scopeLabel: submissionScopeLabel,
+                hasEmployerEmail: Boolean(user.employerEmail),
+                emailConfigured: isEmailConfigured(),
+                entryCount: submissionEntries.length,
+                periodComplete: submissionComplete,
+                periodEnd: submissionPeriod.endDate,
+              }
+            : undefined
+        }
       />
 
-      {!user.employerEmail && (
+      {!showWeekSubmission ? (
+        <p className="text-center text-sm text-muted-foreground">
+          Submit your{" "}
+          <span className="font-medium text-foreground">
+            {getPayPeriodTypeLabel(schedule.payPeriodType).toLowerCase()}
+          </span>{" "}
+          timesheet from the{" "}
+          <Link
+            href={`/?pay=${toDateInputValue(payPeriod.start)}&view=pay`}
+            className="font-medium text-primary hover:underline"
+          >
+            Pay period
+          </Link>{" "}
+          tab.
+        </p>
+      ) : null}
+
+      {!user.employerEmail && showWeekSubmission && (
         <p className="text-center text-sm text-muted-foreground">
           <Link href="/settings" className="font-medium text-primary hover:underline">
             Add your employer email

@@ -19,6 +19,11 @@ export async function getUserById(userId: string) {
       paydayOfWeek: true,
       paydayOfMonth: true,
       payPeriodAnchor: true,
+      payTimingMode: true,
+      periodCloseMode: true,
+      periodCloseDayOfMonth: true,
+      periodCloseDaysBeforePayday: true,
+      onboardingCompletedAt: true,
     },
   });
 }

@@ -38,7 +38,49 @@ Migrations run automatically via the `migrate` service before the app starts.
 
 ### HTTPS with Caddy
 
-Example `Caddyfile`:
+Copy the project Caddyfile to the server:
+
+```bash
+sudo cp deploy/Caddyfile /etc/caddy/Caddyfile
+sudo systemctl reload caddy
+```
+
+Or merge into your existing config. The included `deploy/Caddyfile` serves **both** `hourline.bagghu.com` and `hourline.bagghu.co.uk` on the same app and redirects `www` to apex.
+
+#### DNS records
+
+Point these at your VPS IP (example: `144.91.85.60`):
+
+| Name | Type | Value |
+|------|------|--------|
+| `hourline.bagghu.com` | A | VPS IP |
+| `hourline.bagghu.co.uk` | A | VPS IP |
+| `www.hourline.bagghu.com` | CNAME | `hourline.bagghu.com` (optional) |
+| `www.hourline.bagghu.co.uk` | CNAME | `hourline.bagghu.co.uk` (optional) |
+
+#### Canonical URL
+
+Set **one** `AUTH_URL` in `.env` — the domain you want in emails and as the main link:
+
+```env
+AUTH_URL=https://hourline.bagghu.com
+```
+
+Both `.com` and `.co.uk` will work in the browser (`trustHost` is enabled). Using a single canonical URL avoids confused login redirects.
+
+To send everyone to `.com` only, replace the dual-host block with:
+
+```
+hourline.bagghu.com {
+  reverse_proxy localhost:3011
+}
+
+hourline.bagghu.co.uk, www.hourline.bagghu.com, www.hourline.bagghu.co.uk {
+  redir https://hourline.bagghu.com{uri} permanent
+}
+```
+
+Minimal single-domain example:
 
 ```
 hourline.yourdomain.com {

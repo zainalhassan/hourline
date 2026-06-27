@@ -1,26 +1,22 @@
-# Hourline — copy to /etc/caddy/Caddyfile on the VPS (or include from there).
+# Hourline — copy to /etc/caddy/Caddyfile on the VPS.
 #
-# DNS (all → your VPS IP, e.g. 144.91.85.60):
-#   hourline.bagghu.com      A
-#   hourline.bagghu.co.uk    A
-#   www.hourline.bagghu.com  CNAME hourline.bagghu.com  (optional)
-#   www.hourline.bagghu.co.uk CNAME hourline.bagghu.co.uk (optional)
+# Canonical site: https://hourline.bagghu.com
 #
-# Production .env — pick ONE canonical URL (used for auth callbacks & emails):
+# DNS (all → your VPS IP):
+#   hourline.bagghu.com       A     <VPS IP>   (required)
+#   hourline.bagghu.co.uk     A     <VPS IP>   (redirect only)
+#   www.hourline.bagghu.com   CNAME hourline.bagghu.com   (optional)
+#   www.hourline.bagghu.co.uk A or CNAME → VPS / .co.uk apex (optional)
+#
+# Production .env:
 #   AUTH_URL=https://hourline.bagghu.com
 #
-# Reload after edits: sudo systemctl reload caddy
+# Reload: sudo systemctl reload caddy
 
-# Primary domains — same app (trustHost: true in auth.config.ts)
-hourline.bagghu.com, hourline.bagghu.co.uk {
+hourline.bagghu.com {
 	reverse_proxy localhost:3011
 }
 
-# Optional www → apex (recommended so bookmarks work)
-www.hourline.bagghu.com {
+hourline.bagghu.co.uk, www.hourline.bagghu.com, www.hourline.bagghu.co.uk {
 	redir https://hourline.bagghu.com{uri} permanent
-}
-
-www.hourline.bagghu.co.uk {
-	redir https://hourline.bagghu.co.uk{uri} permanent
 }

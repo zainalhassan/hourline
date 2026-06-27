@@ -9,6 +9,7 @@ import {
   SettingsForm,
   SubmissionSettingsForm,
 } from "@/components/settings/SettingsForm";
+import { PayScheduleForm } from "@/components/settings/PayScheduleForm";
 import { ChangePasswordForm } from "@/components/settings/ChangePasswordForm";
 import { PageHeader } from "@/components/transit/PageHeader";
 import { SectionCard } from "@/components/transit/SectionCard";
@@ -57,6 +58,20 @@ export default async function SettingsPage() {
             Manage personal templates
           </Link>
         </p>
+      </SectionCard>
+
+      <SectionCard
+        title="Pay schedule"
+        description="How long each timesheet runs and when you get paid."
+        headerColor="var(--color-route-teal)"
+      >
+        <PayScheduleForm
+          payPeriodType={user.payPeriodType}
+          paydayMode={user.paydayMode}
+          paydayOfWeek={user.paydayOfWeek}
+          paydayOfMonth={user.paydayOfMonth}
+          payPeriodAnchor={user.payPeriodAnchor}
+        />
       </SectionCard>
 
       <SectionCard

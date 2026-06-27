@@ -3,8 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { parseDurationInput } from "@/lib/timesheet/periods";
-import { requirePeriod } from "@/lib/timesheet/periodQueries";
+import { parseDurationInput, parseDateInput } from "@/lib/timesheet/periods";
+import { isDateInRange } from "@/lib/timesheet/payPeriod";
+import { getOrCreatePeriod, requirePeriod } from "@/lib/timesheet/periodQueries";
 import { getUserActiveTemplate } from "@/lib/timesheet/templates";
 import {
   parseEntryFromForm,
@@ -38,13 +39,7 @@ export async function createTimeEntry(
   const session = await auth();
   if (!session?.user?.id) return { error: "Unauthorized" };
 
-  const { period, fieldConfig } = await getPeriodFieldConfig(
-    periodId,
-    session.user.id,
-  );
-  if (period.status === "SENT") {
-    return { error: "This timesheet has been sent and cannot be edited" };
-  }
+  await requirePeriod(periodId, session.user.id);
 
   const parsed = createEntrySchema.safeParse({
     entryDate: formData.get("entryDate"),
@@ -69,28 +64,52 @@ export async function createTimeEntry(
     String(parsed.data.durationMinutes),
   );
 
+  const entryDate = parseDateInput(parsed.data.entryDate);
+
+  const minDateRaw = formData.get("minDate");
+  const maxDateRaw = formData.get("maxDate");
+  if (
+    typeof minDateRaw === "string" &&
+    minDateRaw &&
+    typeof maxDateRaw === "string" &&
+    maxDateRaw &&
+    !isDateInRange(entryDate, parseDateInput(minDateRaw), parseDateInput(maxDateRaw))
+  ) {
+    return { error: "Date must be within the timesheet range you are viewing" };
+  }
+
+  const targetPeriod = await getOrCreatePeriod(session.user.id, entryDate);
+  if (targetPeriod.status === "SENT") {
+    return { error: "That week has been sent and cannot be edited" };
+  }
+
+  const targetFieldConfig = resolvePeriodFieldConfig(
+    targetPeriod.fieldConfigSnapshot,
+    (await getUserActiveTemplate(session.user.id)).fieldConfig,
+  );
+
   const requiredError = validateEntryRequiredFields(
     formData,
-    fieldConfig,
+    targetFieldConfig,
     totalMinutes,
   );
   if (requiredError) return { error: requiredError };
 
-  const { metadata, mileage } = parseEntryFromForm(formData, fieldConfig);
+  const { metadata, mileage } = parseEntryFromForm(formData, targetFieldConfig);
 
   await prisma.timeEntry.create({
     data: {
-      periodId,
-      entryDate: new Date(parsed.data.entryDate),
+      periodId: targetPeriod.id,
+      entryDate,
       durationMinutes: totalMinutes,
       mileage,
       metadata: metadata as object,
     },
   });
 
-  if (period.status === "READY") {
+  if (targetPeriod.status === "READY") {
     await prisma.timesheetPeriod.update({
-      where: { id: periodId },
+      where: { id: targetPeriod.id },
       data: { status: "DRAFT" },
     });
   }
@@ -153,11 +172,20 @@ export async function updateTimeEntry(
   if (requiredError) return { error: requiredError };
 
   const { metadata, mileage } = parseEntryFromForm(formData, fieldConfig);
+  const entryDate = parseDateInput(parsed.data.entryDate);
+
+  if (
+    !isDateInRange(entryDate, entry.period.startDate, entry.period.endDate)
+  ) {
+    return {
+      error: `Date must fall within this timesheet week`,
+    };
+  }
 
   await prisma.timeEntry.update({
     where: { id: entryId },
     data: {
-      entryDate: new Date(parsed.data.entryDate),
+      entryDate,
       durationMinutes: totalMinutes,
       mileage,
       metadata: metadata as object,

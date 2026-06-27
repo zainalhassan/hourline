@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { formatWeekLabel } from "@/lib/timesheet/periods";
+import { endOfWeek, formatWeekLabel, parseDateInput } from "@/lib/timesheet/periods";
 
 type WeekSelectorProps = {
   weekStart: string;
@@ -12,9 +12,8 @@ type WeekSelectorProps = {
 };
 
 export function WeekSelector({ weekStart, prevWeek, nextWeek }: WeekSelectorProps) {
-  const start = new Date(weekStart);
-  const end = new Date(start);
-  end.setDate(end.getDate() + 6);
+  const start = parseDateInput(weekStart);
+  const end = endOfWeek(start);
 
   return (
     <div className="flex items-center justify-between gap-2">

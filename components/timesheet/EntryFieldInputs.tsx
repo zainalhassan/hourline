@@ -1,21 +1,52 @@
 "use client";
 
+import type { ReactNode } from "react";
 import type { TimeEntry } from "@prisma/client";
 import {
   TIMESHEET_FIELDS,
   type EntryMetadata,
 } from "@/lib/timesheet/fields";
+import { DurationQuickPick } from "@/components/timesheet/DurationQuickPick";
 import {
   getEntryFieldValue,
   getMileageFromEntry,
   type ResolvedField,
-  type StoredFieldConfig,
 } from "@/lib/timesheet/fieldConfig";
+import type { StoredDurationPresets } from "@/lib/timesheet/durationPresets";
 import { toDateInputValue } from "@/lib/timesheet/periods";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
+
+type FieldLabelProps = {
+  htmlFor?: string;
+  children: ReactNode;
+  required?: boolean;
+  showOptional?: boolean;
+  className?: string;
+};
+
+function FieldLabel({
+  htmlFor,
+  children,
+  required = false,
+  showOptional = false,
+  className,
+}: FieldLabelProps) {
+  return (
+    <Label htmlFor={htmlFor} className={className}>
+      <span>{children}</span>
+      {required ? (
+        <span className="text-destructive" aria-hidden="true">
+          *
+        </span>
+      ) : null}
+      {showOptional && !required ? (
+        <span className="text-xs font-normal text-muted-foreground">(optional)</span>
+      ) : null}
+    </Label>
+  );
+}
 
 type EntryFieldInputsProps = {
   fields: ResolvedField[];
@@ -23,10 +54,14 @@ type EntryFieldInputsProps = {
   prefill?: Record<string, string>;
   showDate?: boolean;
   defaultDate?: string;
+  dateMin?: string;
+  dateMax?: string;
   durationHours?: number;
   durationMinutes?: number;
   onDurationChange?: (hours: number, minutes: number) => void;
   compact?: boolean;
+  showOptionalLabels?: boolean;
+  durationPresets?: StoredDurationPresets;
 };
 
 function getMeta(entry?: TimeEntry): EntryMetadata & Record<string, unknown> {
@@ -39,12 +74,17 @@ export function EntryFieldInputs({
   prefill = {},
   showDate = true,
   defaultDate,
+  dateMin,
+  dateMax,
   durationHours: controlledHours,
   durationMinutes: controlledMinutes,
   onDurationChange,
   compact = false,
+  showOptionalLabels = false,
+  durationPresets = { customHours: [], customMinutes: [] },
 }: EntryFieldInputsProps) {
   const meta = getMeta(entry);
+  const isDurationControlled = onDurationChange != null;
   const hours =
     controlledHours ?? (entry ? Math.floor(entry.durationMinutes / 60) : 0);
   const minutes =
@@ -68,12 +108,16 @@ export function EntryFieldInputs({
     <>
       {showDate && (
         <div className="space-y-2">
-          <Label htmlFor="entryDate">Date</Label>
+          <FieldLabel htmlFor="entryDate" required>
+            Date
+          </FieldLabel>
           <Input
             id="entryDate"
             name="entryDate"
             type="date"
             defaultValue={dateValue}
+            min={dateMin}
+            max={dateMax}
             required
           />
         </div>
@@ -81,53 +125,62 @@ export function EntryFieldInputs({
 
       {fields.map((field) => {
         if (field.kind === "builtIn" && field.fieldKey === "durationMinutes") {
+          const showQuickPick = compact && isDurationControlled;
+
           return (
             <div key={field.fieldKey} className="space-y-2">
-              <Label>Duration</Label>
-              {compact && onDurationChange ? (
-                <DurationChips
+              <FieldLabel required={field.required}>Duration</FieldLabel>
+              {showQuickPick ? (
+                <DurationQuickPick
                   hours={hours}
                   minutes={minutes}
+                  durationPresets={durationPresets}
+                  required={field.required}
                   onChange={onDurationChange}
                 />
-              ) : null}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label htmlFor="durationHours" className="text-xs text-muted-foreground">
-                    Hours
-                  </Label>
-                  <Input
-                    id="durationHours"
-                    name="durationHours"
-                    type="number"
-                    min={0}
-                    max={24}
-                    value={hours}
-                    onChange={(e) =>
-                      onDurationChange?.(Number(e.target.value) || 0, minutes)
-                    }
-                    defaultValue={onDurationChange ? undefined : hours}
-                    required={field.required}
-                  />
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="durationHours" className="text-xs text-muted-foreground">
+                      Hours
+                    </Label>
+                    <Input
+                      id="durationHours"
+                      name="durationHours"
+                      type="number"
+                      min={0}
+                      max={24}
+                      {...(isDurationControlled
+                        ? {
+                            value: hours,
+                            onChange: (e) =>
+                              onDurationChange(Number(e.target.value) || 0, minutes),
+                          }
+                        : { defaultValue: hours })}
+                      required={field.required}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="durationMinutesInput" className="text-xs text-muted-foreground">
+                      Minutes
+                    </Label>
+                    <Input
+                      id="durationMinutesInput"
+                      name="durationMinutes"
+                      type="number"
+                      min={0}
+                      max={59}
+                      {...(isDurationControlled
+                        ? {
+                            value: minutes,
+                            onChange: (e) =>
+                              onDurationChange(hours, Number(e.target.value) || 0),
+                          }
+                        : { defaultValue: minutes })}
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="durationMinutesInput" className="text-xs text-muted-foreground">
-                    Minutes
-                  </Label>
-                  <Input
-                    id="durationMinutesInput"
-                    name="durationMinutes"
-                    type="number"
-                    min={0}
-                    max={59}
-                    value={minutes}
-                    onChange={(e) =>
-                      onDurationChange?.(hours, Number(e.target.value) || 0)
-                    }
-                    defaultValue={onDurationChange ? undefined : minutes}
-                  />
-                </div>
-              </div>
+              )}
             </div>
           );
         }
@@ -142,7 +195,12 @@ export function EntryFieldInputs({
                 defaultChecked={entry ? Boolean(meta.billable) : prefill.billable === "true"}
                 className="size-4 rounded border-border"
               />
-              <Label htmlFor="billable">{TIMESHEET_FIELDS.billable.label}</Label>
+              <Label htmlFor="billable" className="font-medium">
+                {TIMESHEET_FIELDS.billable.label}
+                {showOptionalLabels ? (
+                  <span className="text-xs font-normal text-muted-foreground">(optional)</span>
+                ) : null}
+              </Label>
             </div>
           );
         }
@@ -152,7 +210,13 @@ export function EntryFieldInputs({
           if (def.type === "textarea") {
             return (
               <div key={field.fieldKey} className="space-y-2">
-                <Label htmlFor={field.fieldKey}>{def.label}</Label>
+                <FieldLabel
+                  htmlFor={field.fieldKey}
+                  required={field.required}
+                  showOptional={showOptionalLabels}
+                >
+                  {def.label}
+                </FieldLabel>
                 <Textarea
                   id={field.fieldKey}
                   name={field.fieldKey}
@@ -166,7 +230,13 @@ export function EntryFieldInputs({
 
           return (
             <div key={field.fieldKey} className="space-y-2">
-              <Label htmlFor={field.fieldKey}>{def.label}</Label>
+              <FieldLabel
+                htmlFor={field.fieldKey}
+                required={field.required}
+                showOptional={showOptionalLabels}
+              >
+                {def.label}
+              </FieldLabel>
               <Input
                 id={field.fieldKey}
                 name={field.fieldKey}
@@ -196,7 +266,13 @@ export function EntryFieldInputs({
                 }
                 className="size-4 rounded border-border"
               />
-              <Label htmlFor={name}>{field.label}</Label>
+              <FieldLabel
+                htmlFor={name}
+                required={field.required}
+                showOptional={showOptionalLabels}
+              >
+                {field.label}
+              </FieldLabel>
             </div>
           );
         }
@@ -204,7 +280,13 @@ export function EntryFieldInputs({
         if (field.type === "textarea") {
           return (
             <div key={field.id} className="space-y-2">
-              <Label htmlFor={name}>{field.label}</Label>
+              <FieldLabel
+                htmlFor={name}
+                required={field.required}
+                showOptional={showOptionalLabels}
+              >
+                {field.label}
+              </FieldLabel>
               <Textarea
                 id={name}
                 name={name}
@@ -221,7 +303,13 @@ export function EntryFieldInputs({
 
         return (
           <div key={field.id} className="space-y-2">
-            <Label htmlFor={name}>{field.label}</Label>
+            <FieldLabel
+              htmlFor={name}
+              required={field.required}
+              showOptional={showOptionalLabels}
+            >
+              {field.label}
+            </FieldLabel>
             <Input
               id={name}
               name={name}
@@ -238,51 +326,6 @@ export function EntryFieldInputs({
         );
       })}
     </>
-  );
-}
-
-const DURATION_PRESETS = [
-  { label: "15m", hours: 0, minutes: 15 },
-  { label: "30m", hours: 0, minutes: 30 },
-  { label: "1h", hours: 1, minutes: 0 },
-  { label: "2h", hours: 2, minutes: 0 },
-  { label: "4h", hours: 4, minutes: 0 },
-  { label: "8h", hours: 8, minutes: 0 },
-] as const;
-
-function DurationChips({
-  hours,
-  minutes,
-  onChange,
-}: {
-  hours: number;
-  minutes: number;
-  onChange: (hours: number, minutes: number) => void;
-}) {
-  const total = hours * 60 + minutes;
-
-  return (
-    <div className="flex flex-wrap gap-2">
-      {DURATION_PRESETS.map((preset) => {
-        const presetTotal = preset.hours * 60 + preset.minutes;
-        const active = total === presetTotal;
-        return (
-          <button
-            key={preset.label}
-            type="button"
-            onClick={() => onChange(preset.hours, preset.minutes)}
-            className={cn(
-              "rounded-full border px-3 py-1 text-sm font-medium transition-colors",
-              active
-                ? "border-primary bg-primary text-primary-foreground"
-                : "border-border bg-background hover:bg-muted",
-            )}
-          >
-            {preset.label}
-          </button>
-        );
-      })}
-    </div>
   );
 }
 

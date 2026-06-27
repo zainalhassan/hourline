@@ -19,6 +19,17 @@ enum PeriodStatus {
   SENT
 }
 
+enum PayPeriodType {
+  WEEKLY
+  FORTNIGHTLY
+  MONTHLY
+}
+
+enum PaydayMode {
+  DAY_OF_MONTH
+  LAST_WEEKDAY_OF_MONTH
+}
+
 model User {
   id       String  @id @default(cuid())
   name     String?
@@ -31,6 +42,13 @@ model User {
   employerEmail  String?
   ccSelfOnSubmit Boolean @default(false)
   submitMessage  String?
+  durationPresets Json?
+
+  payPeriodType   PayPeriodType @default(WEEKLY)
+  paydayMode      PaydayMode    @default(DAY_OF_MONTH)
+  paydayOfWeek    Int           @default(5)
+  paydayOfMonth   Int           @default(28)
+  payPeriodAnchor DateTime?     @db.Date
 
   activePreset         JobTitlePreset @default(FIELD_ENGINEER)
   activeUserTemplateId String?

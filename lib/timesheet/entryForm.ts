@@ -1,5 +1,6 @@
 import type { TimeEntry } from "@prisma/client";
 import type { EntryMetadata } from "@/lib/timesheet/fields";
+import { TIMESHEET_FIELDS } from "@/lib/timesheet/fields";
 import {
   getVisibleResolvedFields,
   normalizeFieldConfig,
@@ -73,7 +74,9 @@ export function validateEntryRequiredFields(
 
     if (field.kind === "builtIn") {
       const value = String(formData.get(field.fieldKey) ?? "").trim();
-      if (!value) return `${field.fieldKey} is required`;
+      if (!value) {
+        return `${TIMESHEET_FIELDS[field.fieldKey].label} is required`;
+      }
       continue;
     }
 

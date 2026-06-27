@@ -1,5 +1,12 @@
 import { z } from "zod";
 
+function optionalFormString(max: number) {
+  return z.preprocess(
+    (v) => (v == null || v === "" ? undefined : v),
+    z.string().max(max).optional(),
+  );
+}
+
 const jobTitlePresetEnum = z.enum([
   "FIELD_ENGINEER",
   "OFFICE_DESK",
@@ -57,14 +64,20 @@ export const createEntrySchema = z.object({
   entryDate: z.string().min(1, "Date is required"),
   durationHours: z.coerce.number().min(0).max(24),
   durationMinutes: z.coerce.number().min(0).max(59),
-  mileage: z.coerce.number().min(0).optional(),
-  client: z.string().max(200).optional(),
-  project: z.string().max(200).optional(),
-  taskDescription: z.string().max(2000).optional(),
-  mileageDescription: z.string().max(2000).optional(),
-  location: z.string().max(200).optional(),
-  notes: z.string().max(5000).optional(),
-  billable: z.coerce.boolean().optional(),
+  mileage: z.preprocess(
+    (v) => (v === "" || v == null ? undefined : v),
+    z.coerce.number().min(0).optional(),
+  ),
+  client: optionalFormString(200),
+  project: optionalFormString(200),
+  taskDescription: optionalFormString(2000),
+  mileageDescription: optionalFormString(2000),
+  location: optionalFormString(200),
+  notes: optionalFormString(5000),
+  billable: z.preprocess(
+    (v) => (v === "on" ? true : v === null || v === undefined ? undefined : v),
+    z.coerce.boolean().optional(),
+  ),
 });
 
 export const updateEntrySchema = createEntrySchema;
@@ -72,4 +85,15 @@ export const updateEntrySchema = createEntrySchema;
 export const sendTimesheetSchema = z.object({
   periodId: z.string().min(1),
   message: z.string().max(2000).optional(),
+});
+
+export const updatePayScheduleSchema = z.object({
+  payPeriodType: z.enum(["WEEKLY", "FORTNIGHTLY", "MONTHLY"]),
+  paydayMode: z.enum(["DAY_OF_MONTH", "LAST_WEEKDAY_OF_MONTH"]),
+  paydayOfWeek: z.coerce.number().min(0).max(6),
+  paydayOfMonth: z.coerce.number().min(1).max(31),
+  payPeriodAnchor: z.preprocess(
+    (v) => (v === "" || v == null ? undefined : v),
+    z.string().optional(),
+  ),
 });

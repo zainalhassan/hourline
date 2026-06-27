@@ -5,8 +5,10 @@ import { validatePeriodEntries } from "@/lib/timesheet/periodValidation";
 import {
   addWeeks,
   endOfWeek,
+  parseDateInput,
   startOfWeek,
 } from "@/lib/timesheet/periods";
+import { isDateInRange } from "@/lib/timesheet/payPeriod";
 
 export async function getOrCreatePeriod(userId: string, weekStart?: Date) {
   const start = weekStart ? startOfWeek(weekStart) : startOfWeek(new Date());
@@ -82,9 +84,33 @@ export async function reopenPeriod(periodId: string, userId: string) {
 
 export function parseWeekParam(week?: string): Date {
   if (!week) return new Date();
-  const parsed = new Date(week);
-  if (Number.isNaN(parsed.getTime())) return new Date();
-  return parsed;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(week)) return new Date();
+  return parseDateInput(week);
+}
+
+export function filterEntriesInRange<T extends { entryDate: Date }>(
+  entries: T[],
+  start: Date,
+  end: Date,
+): T[] {
+  return entries.filter((entry) =>
+    isDateInRange(new Date(entry.entryDate), start, end),
+  );
+}
+
+export async function getEntriesForDateRange(
+  userId: string,
+  start: Date,
+  end: Date,
+) {
+  return prisma.timeEntry.findMany({
+    where: {
+      period: { userId },
+      entryDate: { gte: start, lte: end },
+    },
+    include: { period: true },
+    orderBy: [{ entryDate: "asc" }, { createdAt: "asc" }],
+  });
 }
 
 export function getAdjacentWeeks(currentStart: Date) {

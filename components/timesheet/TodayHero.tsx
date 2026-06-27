@@ -2,20 +2,24 @@ import { formatDuration } from "@/lib/timesheet/periods";
 
 type TodayHeroProps = {
   todayLabel: string;
-  weekLabel: string;
+  scopeTitle: string;
+  scopeSubtitle: string;
   totalMinutes: number;
   entryCount: number;
   templateName: string;
   status: string;
+  paydayHint?: string;
 };
 
 export function TodayHero({
   todayLabel,
-  weekLabel,
+  scopeTitle,
+  scopeSubtitle,
   totalMinutes,
   entryCount,
   templateName,
   status,
+  paydayHint,
 }: TodayHeroProps) {
   return (
     <div className="transit-eta-card overflow-hidden">
@@ -27,13 +31,17 @@ export function TodayHero({
       </div>
       <div className="transit-eta-card__body space-y-1">
         <p className="text-2xl font-bold tracking-tight">{todayLabel}</p>
-        <p className="text-sm text-muted-foreground">{weekLabel}</p>
+        <p className="text-sm font-medium text-foreground">{scopeTitle}</p>
+        <p className="text-sm text-muted-foreground">{scopeSubtitle}</p>
+        {paydayHint ? (
+          <p className="text-xs text-muted-foreground">{paydayHint}</p>
+        ) : null}
         <div className="flex flex-wrap gap-4 pt-2 text-sm">
           <span>
             <span className="font-semibold text-foreground">
               {formatDuration(totalMinutes)}
             </span>{" "}
-            this week
+            logged
           </span>
           <span>
             <span className="font-semibold text-foreground">{entryCount}</span>{" "}

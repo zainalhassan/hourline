@@ -14,28 +14,23 @@ import {
   type StoredFieldConfig,
 } from "@/lib/timesheet/fieldConfig";
 import { formatDuration } from "@/lib/timesheet/periods";
+import { EntriesDayList } from "@/components/timesheet/EntriesDayList";
+import { EntriesPayPeriodList } from "@/components/timesheet/EntriesPayPeriodList";
 import { EntryActions } from "@/components/timesheet/EntryActions";
 
 type EntriesTableProps = {
   entries: TimeEntry[];
   fieldConfig: StoredFieldConfig;
-  periodId: string;
   canEdit: boolean;
+  view?: "week" | "pay";
 };
 
-export function EntriesTable({
+function EntriesDesktopTable({
   entries,
   fieldConfig,
-  periodId,
   canEdit,
-}: EntriesTableProps) {
+}: Omit<EntriesTableProps, "view">) {
   const columns = getTableColumns(fieldConfig);
-
-  if (entries.length === 0) {
-    return (
-      <p className="text-sm text-muted-foreground">No entries yet for this week.</p>
-    );
-  }
 
   return (
     <div className="overflow-x-auto rounded-lg border border-border">
@@ -76,7 +71,7 @@ export function EntriesTable({
                   <EntryActions
                     entry={entry}
                     fieldConfig={fieldConfig}
-                    periodId={periodId}
+                    periodId={entry.periodId}
                   />
                 </TableCell>
               )}
@@ -85,5 +80,32 @@ export function EntriesTable({
         </TableBody>
       </Table>
     </div>
+  );
+}
+
+export function EntriesTable({ view = "week", ...props }: EntriesTableProps) {
+  if (props.entries.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        {view === "pay"
+          ? "No entries in this pay period yet."
+          : "No entries yet for this week."}
+      </p>
+    );
+  }
+
+  if (view === "pay") {
+    return <EntriesPayPeriodList {...props} />;
+  }
+
+  return (
+    <>
+      <div className="lg:hidden">
+        <EntriesDayList {...props} />
+      </div>
+      <div className="hidden lg:block">
+        <EntriesDesktopTable {...props} />
+      </div>
+    </>
   );
 }

@@ -59,6 +59,43 @@ describe("validations", () => {
     ).toBe(true);
   });
 
+  it("rejects duration minutes above 59", () => {
+    const result = createEntrySchema.safeParse({
+      entryDate: "2026-06-02",
+      durationHours: 1,
+      durationMinutes: 60,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("treats billable checkbox value on as true", () => {
+    const result = createEntrySchema.safeParse({
+      entryDate: "2026-06-02",
+      durationHours: 1,
+      durationMinutes: 0,
+      billable: "on",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.billable).toBe(true);
+  });
+
+  it("accepts null for optional fields omitted from compact forms", () => {
+    const result = createEntrySchema.safeParse({
+      entryDate: "2026-06-27",
+      durationHours: "1",
+      durationMinutes: "0",
+      client: "sa",
+      project: null,
+      taskDescription: null,
+      mileageDescription: null,
+      location: null,
+      notes: null,
+      billable: null,
+      mileage: null,
+    });
+    expect(result.success).toBe(true);
+  });
+
   it("validates send timesheet input", () => {
     expect(
       sendTimesheetSchema.safeParse({

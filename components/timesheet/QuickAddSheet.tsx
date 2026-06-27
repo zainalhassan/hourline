@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Plus } from "lucide-react";
 import type { TimeEntry } from "@prisma/client";
 import type { ResolvedField } from "@/lib/timesheet/fieldConfig";
+import type { StoredDurationPresets } from "@/lib/timesheet/durationPresets";
 import { EntryForm } from "@/components/timesheet/EntryForm";
 import {
   Dialog,
@@ -19,6 +20,12 @@ type QuickAddSheetProps = {
   fields: ResolvedField[];
   lastEntry: TimeEntry | null;
   canEdit: boolean;
+  durationPresets: StoredDurationPresets;
+  dateRange: {
+    min: string;
+    max: string;
+    default: string;
+  };
 };
 
 export function QuickAddSheet({
@@ -26,6 +33,8 @@ export function QuickAddSheet({
   fields,
   lastEntry,
   canEdit,
+  durationPresets,
+  dateRange,
 }: QuickAddSheetProps) {
   const [open, setOpen] = useState(false);
 
@@ -52,6 +61,8 @@ export function QuickAddSheet({
               fields={fields}
               lastEntry={lastEntry}
               compact
+              durationPresets={durationPresets}
+              dateRange={dateRange}
               onSuccess={() => setOpen(false)}
             />
           </DialogContent>
@@ -72,6 +83,8 @@ export function QuickAddSheet({
               fields={fields}
               lastEntry={lastEntry}
               compact
+              durationPresets={durationPresets}
+              dateRange={dateRange}
               onSuccess={() => setOpen(false)}
             />
           </DialogContent>

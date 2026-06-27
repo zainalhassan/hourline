@@ -13,6 +13,12 @@ export async function getUserById(userId: string) {
       submitMessage: true,
       activePreset: true,
       activeUserTemplateId: true,
+      durationPresets: true,
+      payPeriodType: true,
+      paydayMode: true,
+      paydayOfWeek: true,
+      paydayOfMonth: true,
+      payPeriodAnchor: true,
     },
   });
 }

@@ -6,9 +6,11 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
   changePasswordSchema,
+  updatePayScheduleSchema,
   updateSettingsSchema,
   updateSubmissionSettingsSchema,
 } from "@/lib/validations";
+import { parseDateInput } from "@/lib/timesheet/periods";
 
 export type SettingsActionState = {
   error?: string;
@@ -69,6 +71,43 @@ export async function updateSubmissionSettings(
   });
 
   revalidatePath("/settings");
+  return { success: true };
+}
+
+export async function updatePaySchedule(
+  _prev: SettingsActionState,
+  formData: FormData,
+): Promise<SettingsActionState> {
+  const session = await auth();
+  if (!session?.user?.id) return { error: "Unauthorized" };
+
+  const parsed = updatePayScheduleSchema.safeParse({
+    payPeriodType: formData.get("payPeriodType"),
+    paydayMode: formData.get("paydayMode"),
+    paydayOfWeek: formData.get("paydayOfWeek"),
+    paydayOfMonth: formData.get("paydayOfMonth"),
+    payPeriodAnchor: formData.get("payPeriodAnchor"),
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  await prisma.user.update({
+    where: { id: session.user.id },
+    data: {
+      payPeriodType: parsed.data.payPeriodType,
+      paydayMode: parsed.data.paydayMode,
+      paydayOfWeek: parsed.data.paydayOfWeek,
+      paydayOfMonth: parsed.data.paydayOfMonth,
+      payPeriodAnchor: parsed.data.payPeriodAnchor
+        ? parseDateInput(parsed.data.payPeriodAnchor)
+        : null,
+    },
+  });
+
+  revalidatePath("/settings");
+  revalidatePath("/");
   return { success: true };
 }
 

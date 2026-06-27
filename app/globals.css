@@ -131,3 +131,10 @@
     @apply font-sans antialiased;
   }
 }
+
+/* transit-bottom-nav sets display:flex outside @layer, which beats Tailwind utilities */
+@media (min-width: 1024px) {
+  .transit-bottom-nav {
+    display: none;
+  }
+}

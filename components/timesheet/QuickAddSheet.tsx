@@ -47,6 +47,7 @@ function QuickLogDialog({
   durationPresets,
   dateRange,
   trigger,
+  dialogClassName,
 }: {
   periodId: string;
   fields: ResolvedField[];
@@ -54,13 +55,18 @@ function QuickLogDialog({
   durationPresets: StoredDurationPresets;
   dateRange: QuickAddSheetProps["dateRange"];
   trigger: React.ReactElement;
+  dialogClassName?: string;
 }) {
   const [open, setOpen] = useState(false);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={trigger} />
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md">
+      <DialogContent
+        className={
+          dialogClassName ?? "max-h-[85vh] overflow-y-auto sm:max-w-md"
+        }
+      >
         <DialogHeader>
           <DialogTitle>Log time</DialogTitle>
         </DialogHeader>
@@ -87,10 +93,9 @@ export function QuickAddSheet({
   dateRange,
   submission,
 }: QuickAddSheetProps) {
-  const showMobileBar = canEdit || submission;
   const showLogButton = canEdit;
 
-  if (!showMobileBar) return null;
+  if (!canEdit && !submission) return null;
 
   return (
     <>
@@ -135,16 +140,27 @@ export function QuickAddSheet({
         ) : null}
       </div>
 
-      {canEdit || submission ? (
-        <div className="hidden lg:flex lg:justify-end lg:gap-2">
-          {canEdit ? (
+      <div className="hidden items-center justify-between gap-4 rounded-xl border border-border bg-card p-4 shadow-sm lg:flex">
+        <p className="max-w-xl text-sm text-muted-foreground">
+          {showLogButton
+            ? "Add entries with Log time, then review and send when your period is ready."
+            : "Your timesheet is locked for editing. Review and send when ready."}
+        </p>
+        <div className="flex shrink-0 items-center gap-3">
+          {showLogButton ? (
             <QuickLogDialog
               periodId={periodId}
               fields={fields}
               lastEntry={lastEntry}
               durationPresets={durationPresets}
               dateRange={dateRange}
-              trigger={<Button size="sm">Quick log</Button>}
+              dialogClassName="max-h-[85vh] overflow-y-auto sm:max-w-lg"
+              trigger={
+                <Button size="lg" className="min-w-36 gap-2 px-6">
+                  <Plus className="size-5" />
+                  Log time
+                </Button>
+              }
             />
           ) : null}
           {submission ? (
@@ -158,15 +174,19 @@ export function QuickAddSheet({
               periodComplete={submission.periodComplete}
               periodEnd={submission.periodEnd}
               trigger={
-                <Button size="sm" disabled={submission.entryCount === 0}>
-                  <Send className="size-4" />
-                  Submit
+                <Button
+                  size="lg"
+                  className="min-w-36 gap-2 px-6"
+                  disabled={submission.entryCount === 0}
+                >
+                  <Send className="size-5" />
+                  Submit timesheet
                 </Button>
               }
             />
           ) : null}
         </div>
-      ) : null}
+      </div>
     </>
   );
 }

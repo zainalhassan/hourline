@@ -42,7 +42,6 @@ import {
   toDateInputValue,
 } from "@/lib/timesheet/periods";
 import { EntriesTable } from "@/components/timesheet/EntriesTable";
-import { EntryForm } from "@/components/timesheet/EntryForm";
 import { QuickAddSheet } from "@/components/timesheet/QuickAddSheet";
 import { PeriodNavigator } from "@/components/timesheet/PeriodNavigator";
 import { TimesheetViewTabs } from "@/components/timesheet/TimesheetViewTabs";
@@ -162,19 +161,6 @@ export default async function HomePage({ searchParams }: HomeProps) {
           nextLabel="Next pay period"
         />
 
-        <SectionCard
-          title="Timesheet to submit"
-          description={`${payEntries.length} entries · ${formatDuration(totalMinutes)}`}
-          headerColor="var(--color-route-cyan)"
-        >
-          <EntriesTable
-            entries={payEntries}
-            fieldConfig={fieldConfig}
-            canEdit
-            view="pay"
-          />
-        </SectionCard>
-
         <QuickAddSheet
           periodId={logPeriod.id}
           fields={template.fields}
@@ -197,6 +183,19 @@ export default async function HomePage({ searchParams }: HomeProps) {
             periodEnd: submissionPeriod.endDate,
           }}
         />
+
+        <SectionCard
+          title="Timesheet to submit"
+          description={`${payEntries.length} entries · ${formatDuration(totalMinutes)}`}
+          headerColor="var(--color-route-cyan)"
+        >
+          <EntriesTable
+            entries={payEntries}
+            fieldConfig={fieldConfig}
+            canEdit
+            view="pay"
+          />
+        </SectionCard>
 
         {!user.employerEmail && (
           <p className="text-center text-sm text-muted-foreground">
@@ -288,37 +287,6 @@ export default async function HomePage({ searchParams }: HomeProps) {
         nextLabel="Next week"
       />
 
-      <SectionCard
-        title="This week"
-        description={`${visibleEntries.length} entries · ${formatDuration(totalMinutes)}`}
-        headerColor="var(--color-route-cyan)"
-      >
-        <EntriesTable
-          entries={visibleEntries}
-          fieldConfig={fieldConfig}
-          canEdit={canEdit}
-          view="week"
-        />
-      </SectionCard>
-
-      {canEdit ? (
-        <div className="hidden lg:block">
-          <SectionCard
-            title="Add entry"
-            description="Full form with all fields."
-            headerColor={template.headerColor}
-          >
-            <EntryForm
-              periodId={period.id}
-              fields={template.fields}
-              lastEntry={lastEntry}
-              durationPresets={durationPresets}
-              dateRange={dateRange}
-            />
-          </SectionCard>
-        </div>
-      ) : null}
-
       <QuickAddSheet
         periodId={period.id}
         fields={template.fields}
@@ -341,6 +309,19 @@ export default async function HomePage({ searchParams }: HomeProps) {
             : undefined
         }
       />
+
+      <SectionCard
+        title="This week"
+        description={`${visibleEntries.length} entries · ${formatDuration(totalMinutes)}`}
+        headerColor="var(--color-route-cyan)"
+      >
+        <EntriesTable
+          entries={visibleEntries}
+          fieldConfig={fieldConfig}
+          canEdit={canEdit}
+          view="week"
+        />
+      </SectionCard>
 
       {!showWeekSubmission ? (
         <p className="text-center text-sm text-muted-foreground">

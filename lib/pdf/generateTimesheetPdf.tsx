@@ -8,11 +8,11 @@ import {
 } from "@react-pdf/renderer";
 import { getAppDisplayName } from "@/lib/env";
 import {
-  getFieldLabel,
-  getTableColumns,
-  normalizeFieldConfig,
-  type StoredFieldConfig,
-} from "@/lib/timesheet/fieldConfig";
+  formatPdfColumnValue,
+  getPdfDisplayColumns,
+  getPdfShiftBreakdown,
+} from "@/lib/timesheet/pdfColumns";
+import { normalizeFieldConfig, type StoredFieldConfig } from "@/lib/timesheet/fieldConfig";
 import { formatDuration } from "@/lib/timesheet/periods";
 import { getPdfSummaryMetrics } from "@/lib/timesheet/pdfSummary";
 
@@ -51,6 +51,11 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#111",
   },
+  shiftBreakdown: {
+    marginTop: 6,
+    fontSize: 9,
+    color: "#444",
+  },
   table: { marginTop: 12 },
   tableHeader: {
     flexDirection: "row",
@@ -75,6 +80,8 @@ const styles = StyleSheet.create({
   colDate: { width: "14%" },
   colDuration: { width: "12%" },
   colDynamic: { flex: 1 },
+  colPaired: { flex: 1.4 },
+  cellMultiline: { lineHeight: 1.35 },
   footer: {
     position: "absolute",
     bottom: 24,
@@ -111,22 +118,6 @@ function formatDate(date: Date): string {
   });
 }
 
-function getPdfFieldValue(entry: PdfEntry, field: ReturnType<typeof getTableColumns>[number]): string {
-  if (field.kind === "builtIn" && field.fieldKey === "mileage") {
-    return entry.mileage != null ? String(entry.mileage) : "—";
-  }
-  if (field.kind === "builtIn" && field.fieldKey === "billable") {
-    return entry.metadata.billable ? "Yes" : "No";
-  }
-  if (field.kind === "builtIn") {
-    const value = entry.metadata[field.fieldKey];
-    return value != null && String(value).trim() ? String(value) : "—";
-  }
-  const value = entry.metadata[field.id];
-  if (field.type === "checkbox") return value ? "Yes" : "No";
-  return value != null && String(value).trim() ? String(value) : "—";
-}
-
 function TimesheetDocument({
   input,
   generatedAt,
@@ -134,8 +125,10 @@ function TimesheetDocument({
   input: PdfInput;
   generatedAt: string;
 }) {
-  const columns = getTableColumns(normalizeFieldConfig(input.fieldConfig));
-  const summaryMetrics = getPdfSummaryMetrics(input.entries, input.fieldConfig);
+  const fieldConfig = normalizeFieldConfig(input.fieldConfig);
+  const columns = getPdfDisplayColumns(fieldConfig);
+  const summaryMetrics = getPdfSummaryMetrics(input.entries, fieldConfig);
+  const shiftBreakdown = getPdfShiftBreakdown(input.entries, fieldConfig);
   const appName = getAppDisplayName();
 
   return (
@@ -160,16 +153,20 @@ function TimesheetDocument({
           ))}
         </View>
 
+        {shiftBreakdown ? (
+          <Text style={styles.shiftBreakdown}>Shifts: {shiftBreakdown}</Text>
+        ) : null}
+
         <View style={styles.table}>
           <View style={styles.tableHeader}>
             <Text style={styles.colDate}>Date</Text>
-            <Text style={styles.colDuration}>Hours</Text>
-            {columns.map((field) => (
+            <Text style={styles.colDuration}>Duration</Text>
+            {columns.map((column) => (
               <Text
-                key={field.kind === "builtIn" ? field.fieldKey : field.id}
-                style={styles.colDynamic}
+                key={column.id}
+                style={column.fields.length > 1 ? styles.colPaired : styles.colDynamic}
               >
-                {getFieldLabel(field)}
+                {column.label}
               </Text>
             ))}
           </View>
@@ -177,14 +174,22 @@ function TimesheetDocument({
             <View key={i} style={i % 2 === 0 ? styles.tableRow : styles.tableRowAlt}>
               <Text style={styles.colDate}>{formatDate(entry.entryDate)}</Text>
               <Text style={styles.colDuration}>{formatDuration(entry.durationMinutes)}</Text>
-              {columns.map((field) => (
-                <Text
-                  key={field.kind === "builtIn" ? field.fieldKey : field.id}
-                  style={styles.colDynamic}
-                >
-                  {getPdfFieldValue(entry, field)}
-                </Text>
-              ))}
+              {columns.map((column) => {
+                const value = formatPdfColumnValue(entry, column);
+                const isMultiline = column.fields.length > 1 && value.includes("\n");
+
+                return (
+                  <Text
+                    key={column.id}
+                    style={[
+                      column.fields.length > 1 ? styles.colPaired : styles.colDynamic,
+                      ...(isMultiline ? [styles.cellMultiline] : []),
+                    ]}
+                  >
+                    {value}
+                  </Text>
+                );
+              })}
             </View>
           ))}
         </View>

@@ -215,6 +215,32 @@ export function defaultEntryDateForRange(start: Date, end: Date, today = new Dat
   return toDateInputValue(start);
 }
 
+/** Full Mon–Sun bounds for logging in week view, including future days in that week. */
+export function buildEntryDateRangeForWeek(
+  weekStart: Date,
+  weekEnd: Date,
+  today = new Date(),
+): { min: string; max: string; default: string } {
+  return {
+    min: toDateInputValue(weekStart),
+    max: toDateInputValue(weekEnd),
+    default: defaultEntryDateForRange(weekStart, weekEnd, today),
+  };
+}
+
+/** Bounds for logging from pay period view; entries are stored on the week of each date. */
+export function buildEntryDateRangeForPayPeriod(
+  payStart: Date,
+  payEnd: Date,
+  today = new Date(),
+): { min: string; max: string; default: string } {
+  return {
+    min: toDateInputValue(payStart),
+    max: toDateInputValue(payEnd),
+    default: defaultEntryDateForRange(payStart, payEnd, today),
+  };
+}
+
 export function parseViewParam(
   view: string | undefined,
   schedule?: PaySchedule,

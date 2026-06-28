@@ -5,18 +5,26 @@ import type { TimeEntry } from "@prisma/client";
 import {
   TIMESHEET_FIELDS,
   type EntryMetadata,
+  type TimesheetFieldKey,
 } from "@/lib/timesheet/fields";
 import { DurationQuickPick } from "@/components/timesheet/DurationQuickPick";
+import { SelectQuickPick } from "@/components/timesheet/SelectQuickPick";
 import {
   getEntryFieldValue,
   getMileageFromEntry,
+  type ResolvedBuiltInField,
   type ResolvedField,
 } from "@/lib/timesheet/fieldConfig";
+import {
+  isPairLeftField,
+  shouldSkipFieldInLoop,
+} from "@/lib/timesheet/fieldLayouts";
 import type { StoredDurationPresets } from "@/lib/timesheet/durationPresets";
 import { toDateInputValue } from "@/lib/timesheet/periods";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 
 type FieldLabelProps = {
   htmlFor?: string;
@@ -68,6 +76,16 @@ function getMeta(entry?: TimeEntry): EntryMetadata & Record<string, unknown> {
   return (entry?.metadata as EntryMetadata & Record<string, unknown>) ?? {};
 }
 
+function findBuiltInField(
+  fields: ResolvedField[],
+  fieldKey: TimesheetFieldKey,
+): ResolvedBuiltInField | undefined {
+  const field = fields.find(
+    (f) => f.kind === "builtIn" && f.fieldKey === fieldKey,
+  );
+  return field?.kind === "builtIn" ? field : undefined;
+}
+
 export function EntryFieldInputs({
   fields,
   entry,
@@ -104,6 +122,202 @@ export function EntryFieldInputs({
     return prefill[key] ?? fieldDefault ?? "";
   }
 
+  function defaultForCustom(field: ResolvedField & { kind: "custom" }) {
+    if (entry) return getEntryFieldValue(entry, field);
+    return prefill[field.id] ?? field.defaultValue ?? "";
+  }
+
+  function renderBuiltInInput(field: ResolvedBuiltInField) {
+    const def = TIMESHEET_FIELDS[field.fieldKey];
+
+    if (def.type === "textarea") {
+      return (
+        <Textarea
+          id={field.fieldKey}
+          name={field.fieldKey}
+          placeholder={def.placeholder}
+          defaultValue={defaultForBuiltIn(field.fieldKey, field.defaultValue)}
+          required={field.required}
+          rows={compact ? 2 : undefined}
+        />
+      );
+    }
+
+    return (
+      <Input
+        id={field.fieldKey}
+        name={field.fieldKey}
+        type={def.type === "number" ? "number" : "text"}
+        step={field.fieldKey === "mileage" ? "0.01" : undefined}
+        min={def.type === "number" ? 0 : undefined}
+        placeholder={def.placeholder}
+        defaultValue={defaultForBuiltIn(field.fieldKey, field.defaultValue)}
+        required={field.required}
+      />
+    );
+  }
+
+  function renderBuiltInField(field: ResolvedBuiltInField) {
+    const def = TIMESHEET_FIELDS[field.fieldKey];
+
+    return (
+      <div className="space-y-2">
+        <FieldLabel
+          htmlFor={field.fieldKey}
+          required={field.required}
+          showOptional={showOptionalLabels}
+        >
+          {def.label}
+        </FieldLabel>
+        {renderBuiltInInput(field)}
+      </div>
+    );
+  }
+
+  function renderBuiltInPair(left: ResolvedBuiltInField, right: ResolvedBuiltInField) {
+    const leftDef = TIMESHEET_FIELDS[left.fieldKey];
+    const rightDef = TIMESHEET_FIELDS[right.fieldKey];
+
+    return (
+      <div
+        key={`${left.fieldKey}-${right.fieldKey}`}
+        className="grid grid-cols-1 gap-3 sm:grid-cols-2"
+      >
+        <div className="min-w-0 space-y-2">
+          <FieldLabel
+            htmlFor={left.fieldKey}
+            required={left.required}
+            showOptional={showOptionalLabels}
+          >
+            {leftDef.label}
+          </FieldLabel>
+          {renderBuiltInInput(left)}
+        </div>
+        <div className="min-w-0 space-y-2">
+          <FieldLabel
+            htmlFor={right.fieldKey}
+            required={right.required}
+            showOptional={showOptionalLabels}
+          >
+            {rightDef.label}
+          </FieldLabel>
+          {renderBuiltInInput(right)}
+        </div>
+      </div>
+    );
+  }
+
+  function renderCustomField(field: ResolvedField & { kind: "custom" }) {
+    const name = `custom_${field.id}`;
+
+    if (field.type === "checkbox") {
+      return (
+        <div key={field.id} className="flex items-center gap-2">
+          <input
+            id={name}
+            name={name}
+            type="checkbox"
+            defaultChecked={
+              entry ? Boolean(meta[field.id]) : prefill[field.id] === "true"
+            }
+            className="size-4 rounded border-border"
+          />
+          <FieldLabel
+            htmlFor={name}
+            required={field.required}
+            showOptional={showOptionalLabels}
+          >
+            {field.label}
+          </FieldLabel>
+        </div>
+      );
+    }
+
+    if (field.type === "select") {
+      const options = field.options ?? [];
+      const defaultValue = defaultForCustom(field);
+
+      return (
+        <div key={field.id} className="space-y-2">
+          <FieldLabel
+            htmlFor={name}
+            required={field.required}
+            showOptional={showOptionalLabels}
+          >
+            {field.label}
+          </FieldLabel>
+          {compact ? (
+            <SelectQuickPick
+              inputId={name}
+              inputName={name}
+              options={options}
+              defaultValue={defaultValue}
+              required={field.required}
+            />
+          ) : (
+            <select
+              id={name}
+              name={name}
+              defaultValue={defaultValue}
+              required={field.required}
+              className={cn(
+                "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs",
+                "focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 outline-none",
+              )}
+            >
+              {!field.required ? <option value="">Select…</option> : null}
+              {options.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+      );
+    }
+
+    if (field.type === "textarea") {
+      return (
+        <div key={field.id} className="space-y-2">
+          <FieldLabel
+            htmlFor={name}
+            required={field.required}
+            showOptional={showOptionalLabels}
+          >
+            {field.label}
+          </FieldLabel>
+          <Textarea
+            id={name}
+            name={name}
+            defaultValue={defaultForCustom(field)}
+            required={field.required}
+          />
+        </div>
+      );
+    }
+
+    return (
+      <div key={field.id} className="space-y-2">
+        <FieldLabel
+          htmlFor={name}
+          required={field.required}
+          showOptional={showOptionalLabels}
+        >
+          {field.label}
+        </FieldLabel>
+        <Input
+          id={name}
+          name={name}
+          type={field.type === "number" ? "number" : "text"}
+          min={field.type === "number" ? 0 : undefined}
+          defaultValue={defaultForCustom(field)}
+          required={field.required}
+        />
+      </div>
+    );
+  }
+
   return (
     <>
       {showDate && (
@@ -123,7 +337,9 @@ export function EntryFieldInputs({
         </div>
       )}
 
-      {fields.map((field) => {
+      {fields.map((field, index) => {
+        if (shouldSkipFieldInLoop(field, fields, index)) return null;
+
         if (field.kind === "builtIn" && field.fieldKey === "durationMinutes") {
           const showQuickPick = compact && isDurationControlled;
 
@@ -205,125 +421,20 @@ export function EntryFieldInputs({
           );
         }
 
+        if (isPairLeftField(field, fields)) {
+          const rightKey =
+            field.fieldKey === "client" ? "notes" : "mileageDescription";
+          const right = findBuiltInField(fields, rightKey);
+          if (right) return renderBuiltInPair(field, right);
+        }
+
         if (field.kind === "builtIn") {
-          const def = TIMESHEET_FIELDS[field.fieldKey];
-          if (def.type === "textarea") {
-            return (
-              <div key={field.fieldKey} className="space-y-2">
-                <FieldLabel
-                  htmlFor={field.fieldKey}
-                  required={field.required}
-                  showOptional={showOptionalLabels}
-                >
-                  {def.label}
-                </FieldLabel>
-                <Textarea
-                  id={field.fieldKey}
-                  name={field.fieldKey}
-                  placeholder={def.placeholder}
-                  defaultValue={defaultForBuiltIn(field.fieldKey, field.defaultValue)}
-                  required={field.required}
-                />
-              </div>
-            );
-          }
-
           return (
-            <div key={field.fieldKey} className="space-y-2">
-              <FieldLabel
-                htmlFor={field.fieldKey}
-                required={field.required}
-                showOptional={showOptionalLabels}
-              >
-                {def.label}
-              </FieldLabel>
-              <Input
-                id={field.fieldKey}
-                name={field.fieldKey}
-                type={def.type === "number" ? "number" : "text"}
-                step={field.fieldKey === "mileage" ? "0.01" : undefined}
-                min={def.type === "number" ? 0 : undefined}
-                placeholder={def.placeholder}
-                defaultValue={defaultForBuiltIn(field.fieldKey, field.defaultValue)}
-                required={field.required}
-              />
-            </div>
+            <div key={field.fieldKey}>{renderBuiltInField(field)}</div>
           );
         }
 
-        const name = `custom_${field.id}`;
-        if (field.type === "checkbox") {
-          return (
-            <div key={field.id} className="flex items-center gap-2">
-              <input
-                id={name}
-                name={name}
-                type="checkbox"
-                defaultChecked={
-                  entry
-                    ? Boolean(meta[field.id])
-                    : prefill[field.id] === "true"
-                }
-                className="size-4 rounded border-border"
-              />
-              <FieldLabel
-                htmlFor={name}
-                required={field.required}
-                showOptional={showOptionalLabels}
-              >
-                {field.label}
-              </FieldLabel>
-            </div>
-          );
-        }
-
-        if (field.type === "textarea") {
-          return (
-            <div key={field.id} className="space-y-2">
-              <FieldLabel
-                htmlFor={name}
-                required={field.required}
-                showOptional={showOptionalLabels}
-              >
-                {field.label}
-              </FieldLabel>
-              <Textarea
-                id={name}
-                name={name}
-                defaultValue={
-                  entry
-                    ? getEntryFieldValue(entry, field)
-                    : prefill[field.id] ?? field.defaultValue ?? ""
-                }
-                required={field.required}
-              />
-            </div>
-          );
-        }
-
-        return (
-          <div key={field.id} className="space-y-2">
-            <FieldLabel
-              htmlFor={name}
-              required={field.required}
-              showOptional={showOptionalLabels}
-            >
-              {field.label}
-            </FieldLabel>
-            <Input
-              id={name}
-              name={name}
-              type={field.type === "number" ? "number" : "text"}
-              min={field.type === "number" ? 0 : undefined}
-              defaultValue={
-                entry
-                  ? getEntryFieldValue(entry, field)
-                  : prefill[field.id] ?? field.defaultValue ?? ""
-              }
-              required={field.required}
-            />
-          </div>
-        );
+        return renderCustomField(field);
       })}
     </>
   );

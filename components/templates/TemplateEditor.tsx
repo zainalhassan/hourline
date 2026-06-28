@@ -71,7 +71,10 @@ export function TemplateEditor({ action, initial, submitLabel }: TemplateEditorP
   function handlePresetChange(presetKey: JobTitlePreset) {
     setForkedFrom(presetKey);
     const next = PRESET_LIST.find((p) => p.preset === presetKey);
-    if (next) setBuiltIn(next.fields.map((f) => ({ ...f })));
+    if (next) {
+      setBuiltIn(next.fields.map((f) => ({ ...f })));
+      setCustom((next.customFields ?? []).map((f) => ({ ...f })));
+    }
   }
 
   function addCustomField() {
@@ -91,7 +94,56 @@ export function TemplateEditor({ action, initial, submitLabel }: TemplateEditorP
   }
 
   function updateCustom(id: string, patch: Partial<CustomFieldDefinition>) {
-    setCustom((prev) => prev.map((f) => (f.id === id ? { ...f, ...patch } : f)));
+    setCustom((prev) =>
+      prev.map((f) => {
+        if (f.id !== id) return f;
+        const next = { ...f, ...patch };
+        if (patch.type && patch.type !== "select") {
+          delete next.options;
+        }
+        if (patch.type === "select" && !next.options?.length) {
+          next.options = [""];
+        }
+        if (
+          next.type === "select" &&
+          next.defaultValue &&
+          next.options &&
+          !next.options.includes(next.defaultValue)
+        ) {
+          delete next.defaultValue;
+        }
+        return next;
+      }),
+    );
+  }
+
+  function updateCustomOption(fieldId: string, index: number, value: string) {
+    setCustom((prev) =>
+      prev.map((f) => {
+        if (f.id !== fieldId) return f;
+        const options = [...(f.options ?? [])];
+        options[index] = value;
+        return { ...f, options };
+      }),
+    );
+  }
+
+  function addCustomOption(fieldId: string) {
+    setCustom((prev) =>
+      prev.map((f) =>
+        f.id === fieldId ? { ...f, options: [...(f.options ?? []), ""] } : f,
+      ),
+    );
+  }
+
+  function removeCustomOption(fieldId: string, index: number) {
+    setCustom((prev) =>
+      prev.map((f) => {
+        if (f.id !== fieldId) return f;
+        const options = (f.options ?? []).filter((_, i) => i !== index);
+        return { ...f, options: options.length > 0 ? options : [""] };
+      }),
+    );
   }
 
   function removeCustom(id: string) {
@@ -257,6 +309,7 @@ export function TemplateEditor({ action, initial, submitLabel }: TemplateEditorP
                     <SelectItem value="number">Number</SelectItem>
                     <SelectItem value="textarea">Long text</SelectItem>
                     <SelectItem value="checkbox">Checkbox</SelectItem>
+                    <SelectItem value="select">Select</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -291,15 +344,79 @@ export function TemplateEditor({ action, initial, submitLabel }: TemplateEditorP
                 Required
               </label>
             </div>
-            <Input
-              value={field.defaultValue ?? ""}
-              onChange={(e) =>
-                updateCustom(field.id, {
-                  defaultValue: e.target.value || undefined,
-                })
-              }
-              placeholder="Default value (optional)"
-            />
+            {field.type === "select" ? (
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Options</Label>
+                {(field.options ?? [""]).map((option, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <Input
+                      value={option}
+                      onChange={(e) =>
+                        updateCustomOption(field.id, index, e.target.value)
+                      }
+                      placeholder={`Option ${index + 1}`}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => removeCustomOption(field.id, index)}
+                      disabled={(field.options ?? []).length <= 1}
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => addCustomOption(field.id)}
+                >
+                  <Plus className="size-4" />
+                  Add option
+                </Button>
+              </div>
+            ) : null}
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Default value</Label>
+              {field.type === "select" ? (
+                <Select
+                  value={field.defaultValue ?? "__none__"}
+                  onValueChange={(value) =>
+                    updateCustom(field.id, {
+                      defaultValue:
+                        !value || value === "__none__" ? undefined : value,
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="No default" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">No default</SelectItem>
+                    {(field.options ?? [])
+                      .map((option) => option.trim())
+                      .filter(Boolean)
+                      .map((option) => (
+                        <SelectItem key={option} value={option}>
+                          {option}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  value={field.defaultValue ?? ""}
+                  onChange={(e) =>
+                    updateCustom(field.id, {
+                      defaultValue: e.target.value || undefined,
+                    })
+                  }
+                  placeholder="Default value (optional)"
+                />
+              )}
+            </div>
           </div>
         ))}
       </div>

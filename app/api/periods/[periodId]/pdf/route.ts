@@ -5,7 +5,7 @@ import { getAppDisplayName } from "@/lib/env";
 import { generateTimesheetPdf } from "@/lib/pdf/generateTimesheetPdf";
 import { loadPeriodScopedEntries } from "@/lib/timesheet/periodQueries";
 import { getUserActiveTemplate } from "@/lib/timesheet/templates";
-import { getMileageFromEntry, normalizeFieldConfig } from "@/lib/timesheet/fieldConfig";
+import { getMileageFromEntry, resolvePeriodFieldConfig } from "@/lib/timesheet/fieldConfig";
 
 type RouteContext = {
   params: Promise<{ periodId: string }>;
@@ -27,9 +27,11 @@ export async function GET(_request: Request, context: RouteContext) {
   });
 
   const activeTemplate = await getUserActiveTemplate(session.user.id);
-  const fieldConfig = period.fieldConfigSnapshot
-    ? normalizeFieldConfig(period.fieldConfigSnapshot)
-    : activeTemplate.fieldConfig;
+  const fieldConfig = resolvePeriodFieldConfig(
+    period.fieldConfigSnapshot,
+    activeTemplate.fieldConfig,
+    period.status,
+  );
 
   const pdfBuffer = await generateTimesheetPdf({
     userName: user.name ?? user.email,

@@ -4,7 +4,6 @@ import { auth } from "@/lib/auth";
 import { getUserById } from "@/lib/user";
 import { isEmailConfigured } from "@/lib/env";
 import {
-  filterEntriesInRange,
   getAdjacentWeeks,
   getEntriesForDateRange,
   getOrCreatePeriod,
@@ -12,16 +11,15 @@ import {
   parseWeekParam,
 } from "@/lib/timesheet/periodQueries";
 import { getUserActiveTemplate } from "@/lib/timesheet/templates";
-import { getVisibleResolvedFields, normalizeFieldConfig } from "@/lib/timesheet/fieldConfig";
+import { getVisibleResolvedFields, resolvePeriodFieldConfig } from "@/lib/timesheet/fieldConfig";
 import { normalizeDurationPresets } from "@/lib/timesheet/durationPresets";
 import {
-  defaultEntryDateForRange,
+  buildEntryDateRangeForPayPeriod,
+  buildEntryDateRangeForWeek,
   formatPayPeriodLabel,
   getPayPeriodContaining,
-  getPaydayDescription,
   getPayPeriodTypeLabel,
   getDefaultPayViewAnchor,
-  getSubmissionTimingDescription,
   normalizePaySchedule,
   parsePayPeriodParam,
   parseViewParam,
@@ -30,7 +28,6 @@ import {
 import {
   getSubmissionScopeLabel,
   getSubmissionDateRange,
-  getLoggingPeriodContaining,
   isSubmissionPeriodComplete,
   shiftSubmissionPeriod,
   usesWeeklySubmission,
@@ -45,9 +42,12 @@ import { EntriesTable } from "@/components/timesheet/EntriesTable";
 import { QuickAddSheet } from "@/components/timesheet/QuickAddSheet";
 import { PeriodNavigator } from "@/components/timesheet/PeriodNavigator";
 import { TimesheetViewTabs } from "@/components/timesheet/TimesheetViewTabs";
-import { TodayHero } from "@/components/timesheet/TodayHero";
+import { TimesheetSummaryBar } from "@/components/timesheet/TimesheetSummaryBar";
 import { SectionCard } from "@/components/transit/SectionCard";
-import type { StoredFieldConfig } from "@/lib/timesheet/fieldConfig";
+import {
+  getNextPaydayDate,
+  getTimesheetDeadline,
+} from "@/lib/timesheet/payCountdown";
 
 type HomeProps = {
   searchParams: Promise<{ week?: string; pay?: string; view?: string }>;
@@ -67,18 +67,12 @@ export default async function HomePage({ searchParams }: HomeProps) {
   const durationPresets = normalizeDurationPresets(user.durationPresets);
 
   const today = new Date();
-  const todayLabel = today.toLocaleDateString("en-GB", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
 
   if (view === "pay") {
     const payAnchor = params.pay
       ? parsePayPeriodParam(params.pay)
       : getDefaultPayViewAnchor(today, schedule);
     const payPeriod = getSubmissionDateRange(payAnchor, schedule);
-    const loggingPeriod = getLoggingPeriodContaining(today, schedule);
     const payStartKey = toDateInputValue(payPeriod.start);
     const prevPayStart = shiftSubmissionPeriod(payPeriod.start, schedule, -1);
     const nextPayStart = shiftSubmissionPeriod(payPeriod.start, schedule, 1);
@@ -94,51 +88,38 @@ export default async function HomePage({ searchParams }: HomeProps) {
       payPeriod.start,
     );
     const submissionComplete = isSubmissionPeriodComplete(submissionPeriod.endDate, today);
-    const submissionTimingHint = getSubmissionTimingDescription(schedule);
     const totalMinutes = payEntries.reduce((s, e) => s + e.durationMinutes, 0);
-    const dateRange = {
-      min: toDateInputValue(loggingPeriod.start),
-      max: toDateInputValue(loggingPeriod.end),
-      default: defaultEntryDateForRange(
-        loggingPeriod.start,
-        loggingPeriod.end,
-        today,
-      ),
-    };
+    const dateRange = buildEntryDateRangeForPayPeriod(
+      payPeriod.start,
+      payPeriod.end,
+      today,
+    );
     const logPeriod = await getOrCreatePeriod(
       session.user.id,
       parseDateInput(dateRange.default),
     );
     const canLog = submissionPeriod.status !== "SENT";
-    const fieldConfig: StoredFieldConfig = logPeriod.fieldConfigSnapshot
-      ? normalizeFieldConfig(logPeriod.fieldConfigSnapshot)
-      : activeTemplate.fieldConfig;
+    const fieldConfig = resolvePeriodFieldConfig(
+      logPeriod.fieldConfigSnapshot,
+      activeTemplate.fieldConfig,
+      submissionPeriod.status,
+    );
     const template = {
       ...activeTemplate,
       fieldConfig,
       fields: getVisibleResolvedFields(fieldConfig),
     };
     const lastEntry = payEntries.length > 0 ? payEntries[payEntries.length - 1] : null;
+    const paydayIso = getNextPaydayDate(today, schedule).toISOString();
+    const deadlineIso = getTimesheetDeadline(today, schedule).toISOString();
 
     return (
       <div className="mx-auto max-w-6xl space-y-4 pb-24 lg:space-y-6 lg:pb-8">
-        <TodayHero
-          todayLabel={todayLabel}
-          scopeTitle={formatPayPeriodLabel(
-            payPeriod.start,
-            payPeriod.end,
-            schedule.payPeriodType,
-          )}
-          scopeSubtitle={`${getPayPeriodTypeLabel(schedule.payPeriodType)} timesheet to submit`}
-          totalMinutes={totalMinutes}
-          entryCount={payEntries.length}
-          templateName={template.name}
-          status={submissionPeriod.status}
-          paydayHint={
-            [getPaydayDescription(schedule), submissionTimingHint]
-              .filter(Boolean)
-              .join(" · ") || undefined
-          }
+        <TimesheetSummaryBar
+          entries={payEntries}
+          fieldConfig={fieldConfig}
+          paydayIso={paydayIso}
+          deadlineIso={deadlineIso}
         />
 
         <TimesheetViewTabs
@@ -194,6 +175,7 @@ export default async function HomePage({ searchParams }: HomeProps) {
             fieldConfig={fieldConfig}
             canEdit
             view="pay"
+            dateRange={dateRange}
           />
         </SectionCard>
 
@@ -221,17 +203,19 @@ export default async function HomePage({ searchParams }: HomeProps) {
     submissionPeriod.startDate,
     submissionPeriod.endDate,
   );
-  const fieldConfig: StoredFieldConfig = period.fieldConfigSnapshot
-    ? normalizeFieldConfig(period.fieldConfigSnapshot)
-    : activeTemplate.fieldConfig;
+  const fieldConfig = resolvePeriodFieldConfig(
+    period.fieldConfigSnapshot,
+    activeTemplate.fieldConfig,
+    period.status,
+  );
   const template = {
     ...activeTemplate,
     fieldConfig,
     fields: getVisibleResolvedFields(fieldConfig),
   };
 
-  const visibleEntries = filterEntriesInRange(
-    period.entries,
+  const visibleEntries = await getEntriesForDateRange(
+    session.user.id,
     period.startDate,
     period.endDate,
   );
@@ -254,23 +238,21 @@ export default async function HomePage({ searchParams }: HomeProps) {
       ? visibleEntries[visibleEntries.length - 1]
       : null;
   const payPeriod = getPayPeriodContaining(today, schedule);
-  const dateRange = {
-    min: toDateInputValue(period.startDate),
-    max: toDateInputValue(period.endDate),
-    default: defaultEntryDateForRange(period.startDate, period.endDate, today),
-  };
+  const dateRange = buildEntryDateRangeForWeek(
+    period.startDate,
+    period.endDate,
+    today,
+  );
+  const paydayIso = getNextPaydayDate(today, schedule).toISOString();
+  const deadlineIso = getTimesheetDeadline(today, schedule).toISOString();
 
   return (
     <div className="mx-auto max-w-6xl space-y-4 pb-24 lg:space-y-6 lg:pb-8">
-      <TodayHero
-        todayLabel={todayLabel}
-        scopeTitle={formatWeekLabel(period.startDate, period.endDate)}
-        scopeSubtitle="Weekly timesheet"
-        totalMinutes={totalMinutes}
-        entryCount={visibleEntries.length}
-        templateName={template.name}
-        status={submissionPeriod.status}
-        paydayHint={getPaydayDescription(schedule)}
+      <TimesheetSummaryBar
+        entries={visibleEntries}
+        fieldConfig={fieldConfig}
+        paydayIso={paydayIso}
+        deadlineIso={deadlineIso}
       />
 
       <TimesheetViewTabs
@@ -320,6 +302,7 @@ export default async function HomePage({ searchParams }: HomeProps) {
           fieldConfig={fieldConfig}
           canEdit={canEdit}
           view="week"
+          dateRange={dateRange}
         />
       </SectionCard>
 

@@ -1,6 +1,6 @@
 import { JobTitlePreset } from "@prisma/client";
 import type { TemplateFieldConfig, TimesheetFieldKey } from "@/lib/timesheet/fields";
-import type { StoredFieldConfig } from "@/lib/timesheet/fieldConfig";
+import type { CustomFieldDefinition, StoredFieldConfig } from "@/lib/timesheet/fieldConfig";
 
 export type PresetDefinition = {
   preset: JobTitlePreset;
@@ -8,6 +8,7 @@ export type PresetDefinition = {
   description: string;
   headerColor: string;
   fields: TemplateFieldConfig[];
+  customFields?: CustomFieldDefinition[];
 };
 
 function field(
@@ -31,11 +32,22 @@ export const JOB_TITLE_PRESETS: Record<JobTitlePreset, PresetDefinition> = {
     headerColor: "var(--color-route-blue)",
     fields: [
       field("durationMinutes", 0, { required: true }),
-      field("client", 1, { required: true }),
-      field("location", 2),
-      field("mileage", 3),
-      field("mileageDescription", 4),
-      field("notes", 5),
+      field("client", 2, { required: true }),
+      field("notes", 3),
+      field("location", 4),
+      field("mileage", 5),
+      field("mileageDescription", 6),
+    ],
+    customFields: [
+      {
+        id: "shift_type",
+        label: "Shift type",
+        type: "select",
+        options: ["Morning", "Lunch", "Tea Time", "Evening", "Bed time"],
+        visible: true,
+        required: true,
+        sortOrder: 1,
+      },
     ],
   },
   OFFICE_DESK: {
@@ -86,8 +98,9 @@ export function getPresetLabel(preset: JobTitlePreset): string {
 }
 
 export function getDefaultFieldConfig(preset: JobTitlePreset): StoredFieldConfig {
+  const definition = JOB_TITLE_PRESETS[preset];
   return {
-    builtIn: JOB_TITLE_PRESETS[preset].fields.map((f) => ({ ...f })),
-    custom: [],
+    builtIn: definition.fields.map((f) => ({ ...f })),
+    custom: (definition.customFields ?? []).map((f) => ({ ...f })),
   };
 }

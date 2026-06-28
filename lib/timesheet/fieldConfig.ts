@@ -1,4 +1,5 @@
 import type { TimeEntry } from "@prisma/client";
+import type { PeriodStatus } from "@prisma/client";
 import type {
   EntryMetadata,
   TemplateFieldConfig,
@@ -6,7 +7,7 @@ import type {
 } from "@/lib/timesheet/fields";
 import { TIMESHEET_FIELDS } from "@/lib/timesheet/fields";
 
-export type CustomFieldType = "text" | "number" | "textarea" | "checkbox";
+export type CustomFieldType = "text" | "number" | "textarea" | "checkbox" | "select";
 
 export type CustomFieldDefinition = {
   id: string;
@@ -15,6 +16,7 @@ export type CustomFieldDefinition = {
   visible: boolean;
   required: boolean;
   defaultValue?: string;
+  options?: string[];
   sortOrder: number;
 };
 
@@ -37,6 +39,30 @@ export type ResolvedField = ResolvedBuiltInField | ResolvedCustomField;
 export const MAX_CUSTOM_FIELDS = 10;
 
 const BUILT_IN_KEYS = new Set<string>(Object.keys(TIMESHEET_FIELDS));
+
+export function normalizeSelectOptions(options: string[] | undefined): string[] {
+  if (!options?.length) return [];
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+  for (const option of options) {
+    const trimmed = option.trim();
+    if (!trimmed || seen.has(trimmed)) continue;
+    seen.add(trimmed);
+    normalized.push(trimmed);
+  }
+  return normalized;
+}
+
+function normalizeCustomField(field: CustomFieldDefinition): CustomFieldDefinition {
+  if (field.type !== "select") {
+    const { options: _options, ...rest } = field;
+    return rest;
+  }
+  return {
+    ...field,
+    options: normalizeSelectOptions(field.options),
+  };
+}
 
 export function slugifyCustomFieldId(label: string): string {
   const base = label
@@ -61,7 +87,9 @@ export function normalizeFieldConfig(raw: unknown): StoredFieldConfig {
     const obj = raw as StoredFieldConfig;
     return {
       builtIn: Array.isArray(obj.builtIn) ? obj.builtIn : [],
-      custom: Array.isArray(obj.custom) ? obj.custom.slice(0, MAX_CUSTOM_FIELDS) : [],
+      custom: Array.isArray(obj.custom)
+        ? obj.custom.slice(0, MAX_CUSTOM_FIELDS).map(normalizeCustomField)
+        : [],
     };
   }
 
@@ -163,6 +191,19 @@ export function validateCustomFieldDefinitions(
     }
     if (ids.has(field.id)) return `Duplicate column id "${field.id}"`;
     ids.add(field.id);
+
+    if (field.type === "select") {
+      const options = normalizeSelectOptions(field.options);
+      if (options.length === 0) {
+        return `Select column "${field.label}" needs at least one option`;
+      }
+      if (
+        field.defaultValue &&
+        !options.includes(field.defaultValue.trim())
+      ) {
+        return `Default value for "${field.label}" must be one of its options`;
+      }
+    }
   }
 
   return null;
@@ -186,4 +227,16 @@ export function getTableColumns(config: StoredFieldConfig): ResolvedField[] {
     (f) =>
       !(f.kind === "builtIn" && f.fieldKey === "durationMinutes"),
   );
+}
+
+/** Use the active template while a period is editable; freeze on snapshot once sent. */
+export function resolvePeriodFieldConfig(
+  snapshot: unknown,
+  activeConfig: StoredFieldConfig,
+  periodStatus?: PeriodStatus | null,
+): StoredFieldConfig {
+  if (periodStatus === "SENT" && snapshot) {
+    return normalizeFieldConfig(snapshot);
+  }
+  return activeConfig;
 }

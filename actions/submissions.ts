@@ -10,7 +10,7 @@ import { generateTimesheetPdf } from "@/lib/pdf/generateTimesheetPdf";
 import { loadPeriodScopedEntries, markPeriodReady } from "@/lib/timesheet/periodQueries";
 import { isSubmissionPeriodComplete } from "@/lib/timesheet/submissionScope";
 import { getUserActiveTemplate } from "@/lib/timesheet/templates";
-import { getMileageFromEntry, normalizeFieldConfig } from "@/lib/timesheet/fieldConfig";
+import { getMileageFromEntry, resolvePeriodFieldConfig } from "@/lib/timesheet/fieldConfig";
 import { sendTimesheetSchema } from "@/lib/validations";
 
 export type SubmissionActionState = {
@@ -64,9 +64,11 @@ export async function sendTimesheetToEmployer(
   }
 
   const activeTemplate = await getUserActiveTemplate(session.user.id);
-  const fieldConfig = period.fieldConfigSnapshot
-    ? normalizeFieldConfig(period.fieldConfigSnapshot)
-    : activeTemplate.fieldConfig;
+  const fieldConfig = resolvePeriodFieldConfig(
+    period.fieldConfigSnapshot,
+    activeTemplate.fieldConfig,
+    period.status,
+  );
 
   const pdfBuffer = await generateTimesheetPdf({
     userName: user.name ?? user.email,
@@ -117,7 +119,10 @@ export async function sendTimesheetToEmployer(
     }),
     prisma.timesheetPeriod.update({
       where: { id: period.id },
-      data: { status: PeriodStatus.SENT },
+      data: {
+        status: PeriodStatus.SENT,
+        fieldConfigSnapshot: fieldConfig,
+      },
     }),
   ]);
 

@@ -27,6 +27,7 @@ async function getPeriodFieldConfig(periodId: string, userId: string) {
     fieldConfig: resolvePeriodFieldConfig(
       period.fieldConfigSnapshot,
       template.fieldConfig,
+      period.status,
     ),
   };
 }
@@ -86,6 +87,7 @@ export async function createTimeEntry(
   const targetFieldConfig = resolvePeriodFieldConfig(
     targetPeriod.fieldConfigSnapshot,
     (await getUserActiveTemplate(session.user.id)).fieldConfig,
+    targetPeriod.status,
   );
 
   const requiredError = validateEntryRequiredFields(
@@ -139,6 +141,7 @@ export async function updateTimeEntry(
   const fieldConfig = resolvePeriodFieldConfig(
     entry.period.fieldConfigSnapshot,
     template.fieldConfig,
+    entry.period.status,
   );
 
   const parsed = updateEntrySchema.safeParse({
@@ -174,7 +177,17 @@ export async function updateTimeEntry(
   const { metadata, mileage } = parseEntryFromForm(formData, fieldConfig);
   const entryDate = parseDateInput(parsed.data.entryDate);
 
+  const minDateRaw = formData.get("minDate");
+  const maxDateRaw = formData.get("maxDate");
   if (
+    typeof minDateRaw === "string" &&
+    minDateRaw &&
+    typeof maxDateRaw === "string" &&
+    maxDateRaw &&
+    !isDateInRange(entryDate, parseDateInput(minDateRaw), parseDateInput(maxDateRaw))
+  ) {
+    return { error: "Date must be within the timesheet range you are viewing" };
+  } else if (
     !isDateInRange(entryDate, entry.period.startDate, entry.period.endDate)
   ) {
     return {
@@ -182,9 +195,15 @@ export async function updateTimeEntry(
     };
   }
 
+  const targetPeriod = await getOrCreatePeriod(session.user.id, entryDate);
+  if (targetPeriod.status === "SENT") {
+    return { error: "That week has been sent and cannot be edited" };
+  }
+
   await prisma.timeEntry.update({
     where: { id: entryId },
     data: {
+      periodId: targetPeriod.id,
       entryDate,
       durationMinutes: totalMinutes,
       mileage,
@@ -192,9 +211,9 @@ export async function updateTimeEntry(
     },
   });
 
-  if (entry.period.status === "READY") {
+  if (targetPeriod.status === "READY") {
     await prisma.timesheetPeriod.update({
-      where: { id: entry.periodId },
+      where: { id: targetPeriod.id },
       data: { status: "DRAFT" },
     });
   }

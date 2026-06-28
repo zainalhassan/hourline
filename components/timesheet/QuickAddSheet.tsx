@@ -10,7 +10,9 @@ import { EntryForm } from "@/components/timesheet/EntryForm";
 import { SubmitPreviewSheet } from "@/components/timesheet/SubmitPreviewSheet";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -58,9 +60,16 @@ function QuickLogDialog({
   dialogClassName?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [sessionKey, setSessionKey] = useState(0);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (next) setSessionKey((k) => k + 1);
+      }}
+    >
       <DialogTrigger render={trigger} />
       <DialogContent
         className={
@@ -70,15 +79,23 @@ function QuickLogDialog({
         <DialogHeader>
           <DialogTitle>Log time</DialogTitle>
         </DialogHeader>
-        <EntryForm
-          periodId={periodId}
-          fields={fields}
-          lastEntry={lastEntry}
-          compact
-          durationPresets={durationPresets}
-          dateRange={dateRange}
-          onSuccess={() => setOpen(false)}
-        />
+        {open ? (
+          <EntryForm
+            key={sessionKey}
+            periodId={periodId}
+            fields={fields}
+            lastEntry={lastEntry}
+            compact
+            keepOpenOnCreate
+            durationPresets={durationPresets}
+            dateRange={dateRange}
+          />
+        ) : null}
+        <DialogFooter>
+          <DialogClose render={<Button variant="outline" className="w-full sm:w-auto" />}>
+            Done
+          </DialogClose>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

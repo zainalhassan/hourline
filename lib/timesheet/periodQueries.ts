@@ -1,6 +1,7 @@
 import { PeriodStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getUserActiveTemplate } from "@/lib/timesheet/templates";
+import { resolvePeriodFieldConfig } from "@/lib/timesheet/fieldConfig";
 import { validatePeriodEntries } from "@/lib/timesheet/periodValidation";
 import {
   addWeeks,
@@ -83,8 +84,11 @@ export async function requirePeriod(periodId: string, userId: string) {
 export async function markPeriodReady(periodId: string, userId: string) {
   const { period, entries } = await loadPeriodScopedEntries(periodId, userId);
   const template = await getUserActiveTemplate(userId);
-  const fieldConfig =
-    period.fieldConfigSnapshot ?? template.fieldConfig;
+  const fieldConfig = resolvePeriodFieldConfig(
+    period.fieldConfigSnapshot,
+    template.fieldConfig,
+    period.status,
+  );
 
   const validationError = validatePeriodEntries(entries, fieldConfig);
   if (validationError) {

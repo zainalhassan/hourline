@@ -22,9 +22,9 @@ export type TimesheetFieldDefinition = {
 export const TIMESHEET_FIELDS: Record<TimesheetFieldKey, TimesheetFieldDefinition> = {
   client: {
     key: "client",
-    label: "Client / person",
+    label: "Customer",
     type: "text",
-    placeholder: "Who did you visit or work for?",
+    placeholder: "Who did you visit or support?",
   },
   project: {
     key: "project",

@@ -33,11 +33,3 @@ export function validatePeriodEntries(
 
   return null;
 }
-
-export function resolvePeriodFieldConfig(
-  snapshot: unknown,
-  fallback: StoredFieldConfig,
-): StoredFieldConfig {
-  if (snapshot) return normalizeFieldConfig(snapshot);
-  return fallback;
-}

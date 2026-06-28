@@ -22,6 +22,14 @@ function getPrimaryField(
   entry: TimeEntry,
   columns: ResolvedField[],
 ): { label: string; value: string } | null {
+  const shiftField = columns.find(
+    (f) => f.kind === "custom" && f.id === "shift_type",
+  );
+  if (shiftField) {
+    const value = getEntryFieldValue(entry, shiftField);
+    if (value) return { label: getFieldLabel(shiftField), value };
+  }
+
   const priority = ["client", "project", "taskDescription", "location"];
 
   for (const key of priority) {
@@ -63,12 +71,18 @@ type EntriesDayListProps = {
   entries: EntryRow[];
   fieldConfig: StoredFieldConfig;
   canEdit: boolean;
+  dateRange?: {
+    min: string;
+    max: string;
+    default: string;
+  };
 };
 
 export function EntriesDayList({
   entries,
   fieldConfig,
   canEdit,
+  dateRange,
 }: EntriesDayListProps) {
   const columns = getTableColumns(fieldConfig);
   const days = groupEntriesByDay(entries);
@@ -128,6 +142,7 @@ export function EntriesDayList({
                         entry={entry}
                         fieldConfig={fieldConfig}
                         periodId={entry.periodId}
+                        dateRange={dateRange}
                       />
                     ) : null}
                   </div>

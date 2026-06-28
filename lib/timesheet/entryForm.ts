@@ -4,6 +4,7 @@ import { TIMESHEET_FIELDS } from "@/lib/timesheet/fields";
 import {
   getVisibleResolvedFields,
   normalizeFieldConfig,
+  resolvePeriodFieldConfig,
   type StoredFieldConfig,
 } from "@/lib/timesheet/fieldConfig";
 
@@ -105,9 +106,4 @@ export function getPrefillFromEntry(entry: TimeEntry): Record<string, string> {
   return values;
 }
 
-export function resolvePeriodFieldConfig(
-  snapshot: unknown,
-  activeConfig: StoredFieldConfig,
-): StoredFieldConfig {
-  return snapshot ? normalizeFieldConfig(snapshot) : activeConfig;
-}
+export { resolvePeriodFieldConfig } from "@/lib/timesheet/fieldConfig";

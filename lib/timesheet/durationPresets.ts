@@ -1,4 +1,4 @@
-export const DEFAULT_HOUR_PRESETS = [0, 1, 2, 4, 8] as const;
+export const DEFAULT_HOUR_PRESETS = [0, 1, 2, 3, 4] as const;
 export const DEFAULT_MINUTE_PRESETS = [0, 15, 30, 45] as const;
 export const MAX_CUSTOM_DURATION_PRESETS = 8;
 

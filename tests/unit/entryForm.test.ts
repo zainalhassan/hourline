@@ -46,6 +46,7 @@ describe("entry form parsing", () => {
       client: "Acme Ltd",
       location: "Manchester",
       mileage: "15.5",
+      custom_shift_type: "Morning",
       durationHours: "2",
       durationMinutes: "0",
     });
@@ -83,15 +84,40 @@ describe("entry form parsing", () => {
     expect(metadata.vehicle_reg).toBe("AB12 CDE");
   });
 
-  it("requires client for care support worker template", () => {
+  it("requires customer for care support worker template", () => {
     const formData = formDataFromRecord({
       entryDate: "2026-06-03",
+      durationHours: "1",
+      durationMinutes: "0",
+      custom_shift_type: "Morning",
+    });
+
+    const error = validateEntryRequiredFields(formData, fieldEngineerConfig, 60);
+    expect(error).toMatch(/customer/i);
+  });
+
+  it("requires shift type for care support worker template", () => {
+    const formData = formDataFromRecord({
+      entryDate: "2026-06-03",
+      client: "Jane Doe",
       durationHours: "1",
       durationMinutes: "0",
     });
 
     const error = validateEntryRequiredFields(formData, fieldEngineerConfig, 60);
-    expect(error).toMatch(/client/i);
+    expect(error).toMatch(/shift type/i);
+  });
+
+  it("parses custom select fields from form data", () => {
+    const formData = formDataFromRecord({
+      custom_shift_type: "Evening",
+      client: "Jane Doe",
+      durationHours: "1",
+      durationMinutes: "0",
+    });
+
+    const { metadata } = parseEntryFromForm(formData, fieldEngineerConfig);
+    expect(metadata.shift_type).toBe("Evening");
   });
 
   it("requires project for office desk template", () => {
@@ -108,6 +134,7 @@ describe("entry form parsing", () => {
   it("rejects zero duration when duration is required", () => {
     const formData = formDataFromRecord({
       client: "Acme Ltd",
+      custom_shift_type: "Morning",
       durationHours: "0",
       durationMinutes: "0",
     });

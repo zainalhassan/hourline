@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { loadPeriodScopedEntries } from "@/lib/timesheet/periodQueries";
+import { getUserActiveTemplate } from "@/lib/timesheet/templates";
+import { resolvePeriodFieldConfig } from "@/lib/timesheet/fieldConfig";
 import { buildTimesheetCsv } from "@/lib/timesheet/exportCsv";
 
 type RouteContext = {
@@ -19,7 +21,14 @@ export async function GET(_request: Request, context: RouteContext) {
     session.user.id,
   );
 
-  const csv = buildTimesheetCsv(period.fieldConfigSnapshot, entries);
+  const activeTemplate = await getUserActiveTemplate(session.user.id);
+  const fieldConfig = resolvePeriodFieldConfig(
+    period.fieldConfigSnapshot,
+    activeTemplate.fieldConfig,
+    period.status,
+  );
+
+  const csv = buildTimesheetCsv(fieldConfig, entries);
   const label = `${period.startDate.toISOString().slice(0, 10)}_timesheet.csv`;
 
   return new NextResponse(csv, {

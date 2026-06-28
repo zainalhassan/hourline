@@ -19,9 +19,14 @@ type EntryActionsProps = {
   entry: TimeEntry;
   fieldConfig: StoredFieldConfig;
   periodId: string;
+  dateRange?: {
+    min: string;
+    max: string;
+    default: string;
+  };
 };
 
-export function EntryActions({ entry, fieldConfig, periodId }: EntryActionsProps) {
+export function EntryActions({ entry, fieldConfig, periodId, dateRange }: EntryActionsProps) {
   const [editOpen, setEditOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [dupPending, startDup] = useTransition();
@@ -58,6 +63,7 @@ export function EntryActions({ entry, fieldConfig, periodId }: EntryActionsProps
             periodId={periodId}
             fields={fields}
             entry={entry}
+            dateRange={dateRange}
             onSuccess={() => setEditOpen(false)}
           />
         </DialogContent>

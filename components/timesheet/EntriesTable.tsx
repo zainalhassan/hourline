@@ -23,12 +23,18 @@ type EntriesTableProps = {
   fieldConfig: StoredFieldConfig;
   canEdit: boolean;
   view?: "week" | "pay";
+  dateRange?: {
+    min: string;
+    max: string;
+    default: string;
+  };
 };
 
 function EntriesDesktopTable({
   entries,
   fieldConfig,
   canEdit,
+  dateRange,
 }: Omit<EntriesTableProps, "view">) {
   const columns = getTableColumns(fieldConfig);
 
@@ -72,6 +78,7 @@ function EntriesDesktopTable({
                     entry={entry}
                     fieldConfig={fieldConfig}
                     periodId={entry.periodId}
+                    dateRange={dateRange}
                   />
                 </TableCell>
               )}
@@ -83,7 +90,7 @@ function EntriesDesktopTable({
   );
 }
 
-export function EntriesTable({ view = "week", ...props }: EntriesTableProps) {
+export function EntriesTable({ view = "week", dateRange, ...props }: EntriesTableProps) {
   if (props.entries.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
@@ -95,16 +102,16 @@ export function EntriesTable({ view = "week", ...props }: EntriesTableProps) {
   }
 
   if (view === "pay") {
-    return <EntriesPayPeriodList {...props} />;
+    return <EntriesPayPeriodList {...props} dateRange={dateRange} />;
   }
 
   return (
     <>
       <div className="lg:hidden">
-        <EntriesDayList {...props} />
+        <EntriesDayList {...props} dateRange={dateRange} />
       </div>
       <div className="hidden lg:block">
-        <EntriesDesktopTable {...props} />
+        <EntriesDesktopTable {...props} dateRange={dateRange} />
       </div>
     </>
   );

@@ -12,8 +12,8 @@ import {
 
 describe("duration presets", () => {
   it("merges defaults with custom hour buttons", () => {
-    const presets = normalizeDurationPresets({ customHours: [3, 6] });
-    expect(getHourPresets(presets)).toEqual([0, 1, 2, 3, 4, 6, 8]);
+    const presets = normalizeDurationPresets({ customHours: [6] });
+    expect(getHourPresets(presets)).toEqual([0, 1, 2, 3, 4, 6]);
   });
 
   it("merges defaults with custom minute buttons", () => {
@@ -28,10 +28,10 @@ describe("duration presets", () => {
 
   it("adds and removes custom hour presets", () => {
     const stored = normalizeDurationPresets({});
-    const withCustom = addHourPreset(stored, 3);
-    expect(getHourPresets(withCustom)).toContain(3);
-    const without = removeHourPreset(withCustom, 3);
-    expect(getHourPresets(without)).not.toContain(3);
+    const withCustom = addHourPreset(stored, 6);
+    expect(getHourPresets(withCustom)).toContain(6);
+    const without = removeHourPreset(withCustom, 6);
+    expect(getHourPresets(without)).not.toContain(6);
   });
 
   it("formats combined duration labels", () => {

@@ -1,5 +1,6 @@
 import { addDays, getPayPeriodContaining, type PaySchedule } from "@/lib/timesheet/payPeriod";
 import { getMonthlyPaydayDate } from "@/lib/timesheet/payTiming";
+import { parseDateInput, toDateInputValue } from "@/lib/timesheet/periods";
 import { getLoggingPeriodContaining } from "@/lib/timesheet/submissionScope";
 
 function stripTime(date: Date): Date {
@@ -22,60 +23,88 @@ function startOfMonth(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), 1, 12, 0, 0, 0);
 }
 
-/** Next payday on or after today (end of that calendar day). */
-export function getNextPaydayDate(today: Date, schedule: PaySchedule): Date {
+/** Next payday on or after today (local calendar date at noon). */
+export function getNextPaydayCalendarDate(today: Date, schedule: PaySchedule): Date {
   const d = stripTime(today);
 
   if (schedule.payPeriodType === "WEEKLY") {
     let daysAhead = schedule.paydayOfWeek - d.getDay();
     if (daysAhead < 0) daysAhead += 7;
-    return endOfDay(addDays(d, daysAhead));
+    return stripTime(addDays(d, daysAhead));
   }
 
   if (schedule.payPeriodType === "FORTNIGHTLY") {
-    let { start, end } = getPayPeriodContaining(d, schedule);
-    let payday = end;
+    let { end } = getPayPeriodContaining(d, schedule);
+    let payday = stripTime(end);
 
     if (
       schedule.payTimingMode === "PERIOD_CLOSES_ON" &&
       schedule.periodCloseMode === "DAYS_BEFORE_PAYDAY"
     ) {
-      payday = endOfDay(addDays(stripTime(end), schedule.periodCloseDaysBeforePayday));
+      payday = stripTime(addDays(stripTime(end), schedule.periodCloseDaysBeforePayday));
     }
 
-    if (stripTime(payday).getTime() >= d.getTime()) {
-      return endOfDay(payday);
+    if (payday.getTime() >= d.getTime()) {
+      return payday;
     }
 
     const next = getPayPeriodContaining(addDays(end, 1), schedule);
-    payday = next.end;
+    payday = stripTime(next.end);
     if (
       schedule.payTimingMode === "PERIOD_CLOSES_ON" &&
       schedule.periodCloseMode === "DAYS_BEFORE_PAYDAY"
     ) {
-      payday = endOfDay(
+      payday = stripTime(
         addDays(stripTime(next.end), schedule.periodCloseDaysBeforePayday),
       );
     }
-    return endOfDay(payday);
+    return payday;
   }
 
   let cursor = startOfMonth(d);
   for (let i = 0; i < 24; i++) {
     const payday = getMonthlyPaydayDate(cursor.getFullYear(), cursor.getMonth(), schedule);
     if (stripTime(payday).getTime() >= d.getTime()) {
-      return endOfDay(payday);
+      return stripTime(payday);
     }
     cursor = addMonths(cursor, 1);
   }
 
-  return endOfDay(getMonthlyPaydayDate(d.getFullYear(), d.getMonth(), schedule));
+  return stripTime(getMonthlyPaydayDate(d.getFullYear(), d.getMonth(), schedule));
+}
+
+/** Next payday on or after today (end of that calendar day). */
+export function getNextPaydayDate(today: Date, schedule: PaySchedule): Date {
+  return endOfDay(getNextPaydayCalendarDate(today, schedule));
+}
+
+export function getNextPaydayDateKey(today: Date, schedule: PaySchedule): string {
+  return toDateInputValue(getNextPaydayCalendarDate(today, schedule));
+}
+
+/** When the current logging period closes (local calendar date at noon). */
+export function getTimesheetDeadlineCalendarDate(
+  today: Date,
+  schedule: PaySchedule,
+): Date {
+  const { end } = getLoggingPeriodContaining(today, schedule);
+  return stripTime(end);
 }
 
 /** When the current logging period closes (last moment to log hours for it). */
 export function getTimesheetDeadline(today: Date, schedule: PaySchedule): Date {
-  const { end } = getLoggingPeriodContaining(today, schedule);
-  return end;
+  return endOfDay(getTimesheetDeadlineCalendarDate(today, schedule));
+}
+
+export function getTimesheetDeadlineKey(today: Date, schedule: PaySchedule): string {
+  return toDateInputValue(getTimesheetDeadlineCalendarDate(today, schedule));
+}
+
+/** End of a local calendar day from an HTML date input value. */
+export function getCountdownTargetFromDateKey(dateKey: string): Date {
+  const d = parseDateInput(dateKey);
+  d.setHours(23, 59, 59, 999);
+  return d;
 }
 
 export type CountdownParts = {
@@ -108,4 +137,8 @@ export function formatCountdownDate(date: Date): string {
     day: "numeric",
     month: "short",
   });
+}
+
+export function formatCountdownDateKey(dateKey: string): string {
+  return formatCountdownDate(parseDateInput(dateKey));
 }

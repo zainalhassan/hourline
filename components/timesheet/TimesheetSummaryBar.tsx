@@ -12,8 +12,8 @@ import { CountdownTile } from "@/components/timesheet/CountdownTile";
 type TimesheetSummaryBarProps = {
   entries: Pick<TimeEntry, "durationMinutes" | "mileage" | "metadata">[];
   fieldConfig: StoredFieldConfig;
-  paydayIso: string;
-  deadlineIso: string;
+  paydayDate: string;
+  deadlineDate: string;
 };
 
 function isMileageVisible(fieldConfig: StoredFieldConfig): boolean {
@@ -34,8 +34,8 @@ function sumMileage(
 export function TimesheetSummaryBar({
   entries,
   fieldConfig,
-  paydayIso,
-  deadlineIso,
+  paydayDate,
+  deadlineDate,
 }: TimesheetSummaryBarProps) {
   const totalMinutes = entries.reduce((sum, entry) => sum + entry.durationMinutes, 0);
   const showMileage = isMileageVisible(fieldConfig);
@@ -58,12 +58,12 @@ export function TimesheetSummaryBar({
           </p>
         </div>
       ) : null}
-      <CountdownTile label="Payday in" targetIso={paydayIso} pastLabel="Today" />
       <CountdownTile
         label="Period closes in"
-        targetIso={deadlineIso}
+        targetDate={deadlineDate}
         pastLabel="Closed"
       />
+      <CountdownTile label="Payday in" targetDate={paydayDate} pastLabel="Today" />
     </div>
   );
 }

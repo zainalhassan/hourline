@@ -3,22 +3,23 @@
 import { useEffect, useState } from "react";
 import {
   formatCountdown,
-  formatCountdownDate,
+  formatCountdownDateKey,
   getCountdownParts,
+  getCountdownTargetFromDateKey,
 } from "@/lib/timesheet/payCountdown";
 
 type CountdownTileProps = {
   label: string;
-  targetIso: string;
+  targetDate: string;
   pastLabel?: string;
 };
 
 export function CountdownTile({
   label,
-  targetIso,
+  targetDate,
   pastLabel = "Now",
 }: CountdownTileProps) {
-  const target = new Date(targetIso);
+  const target = getCountdownTargetFromDateKey(targetDate);
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
@@ -36,7 +37,7 @@ export function CountdownTile({
         {isPast ? pastLabel : formatCountdown(parts)}
       </p>
       <p className="mt-0.5 text-xs text-muted-foreground">
-        {formatCountdownDate(target)}
+        {formatCountdownDateKey(targetDate)}
       </p>
     </div>
   );

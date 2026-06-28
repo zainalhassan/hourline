@@ -45,8 +45,8 @@ import { TimesheetViewTabs } from "@/components/timesheet/TimesheetViewTabs";
 import { TimesheetSummaryBar } from "@/components/timesheet/TimesheetSummaryBar";
 import { SectionCard } from "@/components/transit/SectionCard";
 import {
-  getNextPaydayDate,
-  getTimesheetDeadline,
+  getNextPaydayDateKey,
+  getTimesheetDeadlineKey,
 } from "@/lib/timesheet/payCountdown";
 
 type HomeProps = {
@@ -110,16 +110,16 @@ export default async function HomePage({ searchParams }: HomeProps) {
       fields: getVisibleResolvedFields(fieldConfig),
     };
     const lastEntry = payEntries.length > 0 ? payEntries[payEntries.length - 1] : null;
-    const paydayIso = getNextPaydayDate(today, schedule).toISOString();
-    const deadlineIso = getTimesheetDeadline(today, schedule).toISOString();
+    const paydayDate = getNextPaydayDateKey(today, schedule);
+    const deadlineDate = getTimesheetDeadlineKey(today, schedule);
 
     return (
       <div className="mx-auto max-w-6xl space-y-4 pb-24 lg:space-y-6 lg:pb-8">
         <TimesheetSummaryBar
           entries={payEntries}
           fieldConfig={fieldConfig}
-          paydayIso={paydayIso}
-          deadlineIso={deadlineIso}
+          paydayDate={paydayDate}
+          deadlineDate={deadlineDate}
         />
 
         <TimesheetViewTabs
@@ -243,16 +243,16 @@ export default async function HomePage({ searchParams }: HomeProps) {
     period.endDate,
     today,
   );
-  const paydayIso = getNextPaydayDate(today, schedule).toISOString();
-  const deadlineIso = getTimesheetDeadline(today, schedule).toISOString();
+  const paydayDate = getNextPaydayDateKey(today, schedule);
+  const deadlineDate = getTimesheetDeadlineKey(today, schedule);
 
   return (
     <div className="mx-auto max-w-6xl space-y-4 pb-24 lg:space-y-6 lg:pb-8">
       <TimesheetSummaryBar
         entries={visibleEntries}
         fieldConfig={fieldConfig}
-        paydayIso={paydayIso}
-        deadlineIso={deadlineIso}
+        paydayDate={paydayDate}
+        deadlineDate={deadlineDate}
       />
 
       <TimesheetViewTabs
